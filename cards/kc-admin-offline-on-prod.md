@@ -1,13 +1,20 @@
 ---
 id: kc-admin-offline-on-prod
 title: Admin user shows offline on prod panel
-status: backlog
+status: done
 owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-24
 tags: [kitsunecommand, prod, websocket, cloudflare-tunnel]
 blocked_by: []
+---
+
+**Resolved in PR #38.** Root cause was Cloudflare's managed WAF: any WebSocket Upgrade on a path starting with `ws` (tested `/ws`, `/wss`, `/wsx`, `/mywebsocket` — all blocked) returns HTTP 400 at the CF edge and never reaches our tunnel. Fix was to rename KC's WebSocket endpoint from `/ws` to `/socket` — boring name, no WAF rule matches it. Backend (`WebSocketHost`, `EventBroadcaster`), frontend (`useWebSocket.ts`), and prod `/etc/cloudflared/config.yml` all updated together. Verified on prod: `/socket` upgrade now reaches origin (`cf-cache-status: DYNAMIC` in response, not WAF-blocked). Story going into the new troubleshooting doc — see `kc-troubleshooting-docs`.
+
+Along the way also fixed cloudflared resolving `localhost` to `[::1]` while WebSocketSharp binds `0.0.0.0` — tunnel config now uses `http://127.0.0.1:` explicitly.
+
 ---
 
 Logged in as `admin` on `panel.kitsuneden.net`, but the Users / presence view shows `admin` as offline. Works correctly on dev — so it's prod-specific, probably related to the Cloudflare Tunnel front-end that dev doesn't have.
