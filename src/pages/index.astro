@@ -2,6 +2,7 @@
 import { getCollection } from 'astro:content';
 import Layout from '../layouts/Layout.astro';
 import Column from '../components/Column.astro';
+import Flame from '../components/Flame.astro';
 
 const allCards = await getCollection('cards');
 
@@ -24,13 +25,21 @@ const cardsByStatus = Object.fromEntries(
 );
 
 const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.length + cardsByStatus.backlog.length;
+
+// Owner breakdown — only count active cards (not done/archived)
+const activeCards = sorted.filter((c) => c.data.status !== 'done' && c.data.status !== 'archived');
+const ownerCounts = new Map<string, number>();
+for (const c of activeCards) {
+  ownerCounts.set(c.data.owner, (ownerCounts.get(c.data.owner) ?? 0) + 1);
+}
+const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
 ---
 
 <Layout title="kitsunebi — the Skulk's board">
   <main>
     <header class="site-head">
       <div class="brand">
-        <span class="brand-flame" aria-hidden="true"></span>
+        <Flame size={28} class="brand-flame" />
         <h1>kitsunebi</h1>
       </div>
       <p class="tagline">
@@ -43,6 +52,16 @@ const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.len
         <span class="dot">·</span>
         <span>{cardsByStatus.done.length} shipped</span>
       </div>
+      {ownerList.length > 0 && (
+        <div class="owners" aria-label="Active cards by owner">
+          {ownerList.map(([owner, count]) => (
+            <span class="owner-pill">
+              <span class="owner-name">{owner}</span>
+              <span class="owner-count">{count}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </header>
 
     <div class="board">
@@ -52,12 +71,24 @@ const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.len
     </div>
 
     <footer class="site-foot">
-      <span>
-        Cards live as markdown in <code>cards/</code>.
-        Edit any card to change its state — status lives in frontmatter.
-      </span>
-      <span class="divider">·</span>
-      <span>Skulk persists eternal. 🦊</span>
+      <div class="foot-row">
+        <div class="legend" aria-label="Status legend">
+          <span class="legend-item"><span class="legend-flame lg-backlog"></span>backlog</span>
+          <span class="legend-item"><span class="legend-flame lg-blocked"></span>blocked</span>
+          <span class="legend-item"><span class="legend-flame lg-in_progress"></span>in progress</span>
+          <span class="legend-item"><span class="legend-flame lg-done"></span>done</span>
+        </div>
+        <div class="foot-links">
+          <a href="https://github.com/AdaInTheLab/kitsunebi" rel="noopener" target="_blank">github</a>
+          <span class="divider">·</span>
+          <a href="https://openhearth.kitsuneden.net" rel="noopener" target="_blank">openhearth</a>
+        </div>
+      </div>
+      <div class="foot-row foot-row-bottom">
+        <span class="foot-hint">Cards live as markdown in <code>cards/</code>. Edit frontmatter to change state.</span>
+        <span class="divider">·</span>
+        <span>Skulk persists eternal. 🦊</span>
+      </div>
     </footer>
   </main>
 </Layout>
@@ -80,31 +111,17 @@ const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.len
     margin-bottom: 0.5rem;
   }
 
-  .brand-flame {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--flame-in_progress);
-    box-shadow:
-      0 0 12px var(--flame-in_progress),
-      0 0 30px var(--flame-in_progress-glow),
-      0 0 60px var(--flame-in_progress-glow);
-    animation: flicker 3.2s ease-in-out infinite alternate;
-  }
-
-  @keyframes flicker {
-    0% { opacity: 0.85; transform: scale(1); }
-    40% { opacity: 1; transform: scale(1.1); }
-    70% { opacity: 0.9; transform: scale(0.95); }
-    100% { opacity: 0.92; transform: scale(1.05); }
+  :global(.brand-flame) {
+    color: var(--flame-in_progress);
   }
 
   h1 {
-    font-size: 1.8rem;
+    font-family: var(--font-serif);
+    font-size: 2.4rem;
     margin: 0;
-    font-weight: 500;
-    letter-spacing: -0.01em;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    line-height: 1;
   }
 
   .tagline {
@@ -123,6 +140,39 @@ const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.len
 
   .dot {
     opacity: 0.5;
+  }
+
+  .owners {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+  }
+
+  .owner-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.12rem 0.55rem 0.12rem 0.45rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    transition: border-color 150ms ease, color 150ms ease;
+  }
+
+  .owner-pill:hover {
+    border-color: var(--flame-in_progress);
+    color: var(--text);
+  }
+
+  .owner-count {
+    font-variant-numeric: tabular-nums;
+    color: var(--flame-in_progress);
+    font-weight: 600;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
   }
 
   .board {
@@ -146,9 +196,72 @@ const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.len
     color: var(--text-soft);
     font-size: 0.78rem;
     display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+
+  .foot-row {
+    display: flex;
     flex-wrap: wrap;
-    gap: 0.5rem;
+    gap: 1rem;
     justify-content: space-between;
+    align-items: center;
+  }
+
+  .foot-row-bottom {
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--border-soft);
+    opacity: 0.85;
+  }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--text-dim);
+    font-size: 0.76rem;
+  }
+
+  .legend-flame {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .lg-backlog { background: var(--flame-backlog); box-shadow: 0 0 6px var(--flame-backlog-glow); }
+  .lg-blocked { background: var(--flame-blocked); box-shadow: 0 0 6px var(--flame-blocked-glow); }
+  .lg-in_progress { background: var(--flame-in_progress); box-shadow: 0 0 6px var(--flame-in_progress-glow); }
+  .lg-done { background: var(--flame-done); box-shadow: 0 0 6px var(--flame-done-glow); }
+
+  .foot-links {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .foot-links a {
+    color: var(--text-dim);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .foot-links a:hover {
+    color: var(--flame-in_progress);
+    border-bottom-color: var(--flame-in_progress);
+  }
+
+  .foot-hint {
+    flex: 1;
+    min-width: 0;
   }
 
   .divider {

@@ -1,6 +1,7 @@
 ---
 import type { CollectionEntry } from 'astro:content';
 import Card from './Card.astro';
+import Flame from './Flame.astro';
 
 interface Props {
   status: 'backlog' | 'in_progress' | 'blocked' | 'done' | 'archived';
@@ -13,7 +14,7 @@ const { status, label, cards } = Astro.props;
 
 <section class={`column status-${status}`}>
   <header class="column-head">
-    <span class="flame" aria-hidden="true"></span>
+    <Flame size={14} class="col-flame" />
     <h2>{label}</h2>
     <span class="count">{cards.length}</span>
   </header>
@@ -22,7 +23,7 @@ const { status, label, cards } = Astro.props;
     {cards.length === 0 ? (
       <div class="empty">— quiet —</div>
     ) : (
-      cards.map((card) => <Card card={card} />)
+      cards.map((card, i) => <Card card={card} index={i} />)
     )}
   </div>
 </section>
@@ -54,20 +55,8 @@ const { status, label, cards } = Astro.props;
     z-index: 1;
   }
 
-  .flame {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--flame);
-    box-shadow: 0 0 10px var(--flame), 0 0 22px var(--flame-glow);
-    animation: flicker 2.8s ease-in-out infinite alternate;
-  }
-
-  @keyframes flicker {
-    0% { opacity: 0.85; transform: scale(1); }
-    40% { opacity: 1; transform: scale(1.08); }
-    70% { opacity: 0.92; transform: scale(0.98); }
-    100% { opacity: 0.88; transform: scale(1.05); }
+  .column :global(.col-flame) {
+    color: var(--flame);
   }
 
   .column-head h2 {

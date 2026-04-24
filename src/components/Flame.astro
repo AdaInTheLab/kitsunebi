@@ -1,0 +1,59 @@
+---
+interface Props {
+  size?: number;
+  class?: string;
+}
+
+const { size = 16, class: className = '' } = Astro.props;
+---
+
+<svg
+  class={`flame ${className}`}
+  width={size}
+  height={size * 1.3}
+  viewBox="0 0 24 30"
+  fill="none"
+  xmlns="http://www.w3.org/2000/svg"
+  aria-hidden="true"
+>
+  <defs>
+    <radialGradient id="flame-grad" cx="50%" cy="72%" r="60%">
+      <stop offset="0%" stop-color="white" stop-opacity="0.9" />
+      <stop offset="35%" stop-color="currentColor" stop-opacity="0.95" />
+      <stop offset="100%" stop-color="currentColor" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <!-- Outer flame silhouette -->
+  <path
+    d="M12 2 C 9 8, 4 10, 4 18 C 4 24, 8 28, 12 28 C 16 28, 20 24, 20 18 C 20 12, 17 10, 15 6 C 14 9, 13 10, 12 10 C 11 9, 11 6, 12 2 Z"
+    fill="currentColor"
+    opacity="0.85"
+  />
+  <!-- Inner bright core -->
+  <path
+    d="M12 12 C 10 15, 8 17, 8 21 C 8 24, 10 26, 12 26 C 14 26, 16 24, 16 21 C 16 18, 15 16, 13 14 C 12.5 15, 12 15, 12 12 Z"
+    fill="url(#flame-grad)"
+    opacity="0.7"
+  />
+</svg>
+
+<style>
+  .flame {
+    display: inline-block;
+    vertical-align: middle;
+    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 10px currentColor);
+    animation: flameFlicker 2.8s ease-in-out infinite alternate;
+    transform-origin: 50% 90%;
+  }
+
+  @keyframes flameFlicker {
+    0%   { transform: scale(1, 1) rotate(-1deg); opacity: 0.88; }
+    30%  { transform: scale(1.05, 1.08) rotate(0.5deg); opacity: 1; }
+    60%  { transform: scale(0.98, 1.02) rotate(-0.8deg); opacity: 0.92; }
+    100% { transform: scale(1.02, 1.05) rotate(1deg); opacity: 0.96; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flame { animation: none; }
+  }
+</style>
