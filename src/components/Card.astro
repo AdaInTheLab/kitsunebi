@@ -25,7 +25,14 @@ const dueClass = daysUntilDue === null
         : '';
 ---
 
-<article class={`card status-${data.status}`} style={`--card-index: ${index};`}>
+<article
+  class={`card status-${data.status}`}
+  style={`--card-index: ${index};`}
+  data-owner={data.owner}
+  data-collaborators={data.collaborators.join(',')}
+  data-tags={data.tags.join(',')}
+  data-card-id={data.id}
+>
   <header class="card-head">
     <h3 class="card-title">
       <a href={`/cards/${data.id}/`}>{data.title}</a>
@@ -81,10 +88,16 @@ const dueClass = daysUntilDue === null
     .card { animation: none; }
   }
 
-  .card:hover {
+  .card:hover,
+  .card.kbd-focus {
     background: var(--bg-card-hover);
     transform: translateY(-1px);
     box-shadow: 0 2px 0 var(--flame-glow) inset, 0 0 22px -6px var(--flame-glow);
+  }
+
+  .card.kbd-focus {
+    outline: 1px solid var(--flame);
+    outline-offset: 1px;
   }
 
   .status-backlog { --flame: var(--flame-backlog); --flame-glow: var(--flame-backlog-glow); }

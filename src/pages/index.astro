@@ -33,6 +33,19 @@ for (const c of activeCards) {
   ownerCounts.set(c.data.owner, (ownerCounts.get(c.data.owner) ?? 0) + 1);
 }
 const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
+
+// All unique tags, for the filter bar
+const tagSet = new Set<string>();
+for (const c of sorted) for (const t of c.data.tags) tagSet.add(t);
+const allTags = [...tagSet].sort();
+
+// All unique people (owners + collaborators)
+const peopleSet = new Set<string>();
+for (const c of sorted) {
+  peopleSet.add(c.data.owner);
+  for (const p of c.data.collaborators) peopleSet.add(p);
+}
+const allPeople = [...peopleSet].sort();
 ---
 
 <Layout title="kitsunebi — the Skulk's board">
@@ -64,11 +77,162 @@ const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
       )}
     </header>
 
+    <div class="filter-bar" role="search" aria-label="Filter cards">
+      <input
+        type="search"
+        id="filter-search"
+        placeholder="filter by text (press /)"
+        aria-label="Filter cards by text"
+      />
+      <div class="filter-pills">
+        <button type="button" class="filter-pill is-active" data-filter="person" data-value="">all people</button>
+        {allPeople.map((p) => (
+          <button type="button" class="filter-pill" data-filter="person" data-value={p}>🦊 {p}</button>
+        ))}
+      </div>
+      {allTags.length > 0 && (
+        <div class="filter-pills tag-pills">
+          <button type="button" class="filter-pill is-active" data-filter="tag" data-value="">all tags</button>
+          {allTags.map((t) => (
+            <button type="button" class="filter-pill tag-filter" data-filter="tag" data-value={t}>#{t}</button>
+          ))}
+        </div>
+      )}
+      <button type="button" class="filter-clear" data-clear>clear</button>
+    </div>
+
     <div class="board">
       {columns.map((c) => (
         <Column status={c.status} label={c.label} cards={cardsByStatus[c.status]} />
       ))}
     </div>
+
+    <script>
+      type FilterState = { person: string; tag: string; text: string };
+      const state: FilterState = { person: '', tag: '', text: '' };
+
+      const searchInput = document.getElementById('filter-search') as HTMLInputElement | null;
+      const clearBtn = document.querySelector<HTMLButtonElement>('[data-clear]');
+
+      function applyFilters() {
+        const text = state.text.trim().toLowerCase();
+        document.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+          const cardText = card.textContent?.toLowerCase() ?? '';
+          const owner = card.dataset.owner ?? '';
+          const collabs = (card.dataset.collaborators ?? '').split(',').filter(Boolean);
+          const tags = (card.dataset.tags ?? '').split(',').filter(Boolean);
+
+          const personOk = !state.person || owner === state.person || collabs.includes(state.person);
+          const tagOk = !state.tag || tags.includes(state.tag);
+          const textOk = !text || cardText.includes(text);
+
+          card.style.display = personOk && tagOk && textOk ? '' : 'none';
+        });
+
+        // Update column counts
+        document.querySelectorAll<HTMLElement>('[data-column]').forEach((col) => {
+          const visible = col.querySelectorAll('.card:not([style*="display: none"])').length;
+          const countEl = col.querySelector('.count');
+          if (countEl) countEl.textContent = String(visible);
+        });
+      }
+
+      function setActive(filterGroup: string, value: string) {
+        document.querySelectorAll<HTMLButtonElement>(`[data-filter="${filterGroup}"]`).forEach((btn) => {
+          btn.classList.toggle('is-active', btn.dataset.value === value);
+        });
+      }
+
+      document.addEventListener('click', (e) => {
+        const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
+        if (btn) {
+          const group = btn.dataset.filter as 'person' | 'tag';
+          const value = btn.dataset.value ?? '';
+          state[group] = value;
+          setActive(group, value);
+          applyFilters();
+          return;
+        }
+        if ((e.target as HTMLElement).closest('[data-clear]')) {
+          state.person = '';
+          state.tag = '';
+          state.text = '';
+          if (searchInput) searchInput.value = '';
+          setActive('person', '');
+          setActive('tag', '');
+          applyFilters();
+        }
+      });
+
+      searchInput?.addEventListener('input', () => {
+        state.text = searchInput.value;
+        applyFilters();
+      });
+
+      // Keyboard navigation:
+      //   /       focus filter
+      //   Escape  blur filter, or clear card focus
+      //   j / ↓   next card
+      //   k / ↑   previous card
+      //   Enter   open focused card
+      //   ?       show help
+      let focusedIdx = -1;
+
+      function visibleCards(): HTMLElement[] {
+        return [...document.querySelectorAll<HTMLElement>('.card')].filter(
+          (c) => c.style.display !== 'none'
+        );
+      }
+
+      function focusCard(idx: number) {
+        const cards = visibleCards();
+        if (cards.length === 0) return;
+        focusedIdx = ((idx % cards.length) + cards.length) % cards.length;
+        cards.forEach((c, i) => c.classList.toggle('kbd-focus', i === focusedIdx));
+        cards[focusedIdx].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+
+      function clearFocus() {
+        document.querySelectorAll('.kbd-focus').forEach((c) => c.classList.remove('kbd-focus'));
+        focusedIdx = -1;
+      }
+
+      document.addEventListener('keydown', (e) => {
+        const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+
+        if (e.key === '/' && !inInput) {
+          e.preventDefault();
+          searchInput?.focus();
+          return;
+        }
+        if (e.key === 'Escape') {
+          if (document.activeElement === searchInput) {
+            searchInput!.blur();
+          } else {
+            clearFocus();
+          }
+          return;
+        }
+        if (inInput) return;
+
+        if (e.key === 'j' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          focusCard(focusedIdx + 1);
+        } else if (e.key === 'k' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          focusCard(focusedIdx - 1);
+        } else if (e.key === 'Enter' && focusedIdx >= 0) {
+          e.preventDefault();
+          const cards = visibleCards();
+          const card = cards[focusedIdx];
+          const id = card?.dataset.cardId;
+          if (id) window.location.href = `/cards/${id}/`;
+        } else if (e.key === '?') {
+          e.preventDefault();
+          alert('keys:\n  /       filter\n  j / ↓   next card\n  k / ↑   previous\n  Enter   open\n  Esc     clear\n  ?       help');
+        }
+      });
+    </script>
 
     <footer class="site-foot">
       <div class="foot-row">
@@ -85,7 +249,10 @@ const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
         </div>
       </div>
       <div class="foot-row foot-row-bottom">
-        <span class="foot-hint">Cards live as markdown in <code>cards/</code>. Edit frontmatter to change state.</span>
+        <span class="foot-hint">
+          Cards live as markdown in <code>cards/</code>.
+          Keys: <kbd>/</kbd> filter · <kbd>j</kbd>/<kbd>k</kbd> nav · <kbd>Enter</kbd> open
+        </span>
         <span class="divider">·</span>
         <span>Skulk persists eternal. 🦊</span>
       </div>
@@ -174,6 +341,95 @@ const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
     font-weight: 600;
     font-family: var(--font-mono);
     font-size: 0.68rem;
+  }
+
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding: 0.8rem 1rem;
+    background: rgba(23, 23, 28, 0.55);
+    border: 1px solid var(--border-soft);
+    border-radius: 8px;
+    backdrop-filter: blur(6px);
+  }
+
+  #filter-search {
+    flex: 1;
+    min-width: 180px;
+    background: var(--bg-0);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.7rem;
+    font: inherit;
+    font-size: 0.82rem;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  #filter-search:focus {
+    outline: none;
+    border-color: var(--flame-in_progress);
+    box-shadow: 0 0 0 2px var(--flame-in_progress-glow);
+  }
+
+  #filter-search::placeholder {
+    color: var(--text-soft);
+  }
+
+  .filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    align-items: center;
+  }
+
+  .filter-pill {
+    background: var(--bg-0);
+    color: var(--text-dim);
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+    padding: 0.22rem 0.7rem;
+    font: inherit;
+    font-size: 0.74rem;
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  }
+
+  .filter-pill:hover {
+    color: var(--text);
+    border-color: var(--flame-in_progress);
+  }
+
+  .filter-pill.is-active {
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+    background: var(--flame-in_progress-glow);
+  }
+
+  .tag-filter {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+  }
+
+  .filter-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-soft);
+    cursor: pointer;
+    font: inherit;
+    font-size: 0.74rem;
+    padding: 0.22rem 0.5rem;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .filter-clear:hover {
+    color: var(--flame-blocked);
+    border-bottom-color: var(--flame-blocked);
   }
 
   .board {
