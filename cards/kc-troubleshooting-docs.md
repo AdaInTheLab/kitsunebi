@@ -23,12 +23,16 @@ is costing real minutes every time.
 Each entry: **symptom → cause → fix** in that order. Operators scan for
 the symptom, so the headline has to be what they see.
 
-- **Live badge never turns green on prod; `/ws` WebSocket stuck.**
-  Cloudflare's managed WAF rejects WebSocket Upgrade requests on any
-  path starting with `ws` (including `/ws`, `/wss`, `/ws-anything`)
-  with HTTP 400 at the edge. KC now uses `/socket` by default (PR #38).
-  If you see this, confirm your reverse-proxy / tunnel is forwarding
-  `/socket` to port 8889, not `/ws`.
+- **Live badge never turns green on prod; WebSocket "Finished 0 kB".**
+  Cloudflare's managed WAF has rules against both paths containing
+  `ws` (blocks WebSocket Upgrade at edge) AND paths containing
+  `socket` (blocks *any* request, even plain GET). Second one is
+  sneakier: the handshake succeeds, then CF severs the stream
+  mid-frame, producing `WebSocketException: The header of a frame
+  cannot be read from the stream` in the KC log on repeat. KC now
+  uses `/kcevents` (PR #38). If you see this, confirm your
+  reverse-proxy / tunnel is forwarding `/kcevents` to port 8889. Do
+  not rename the KC endpoint to anything with "ws" or "socket" in it.
 
 - **`MapTileRenderer initialization failed: … dl assembly:<unknown>`**
   on Linux. SkiaSharp's `LibraryLoader` does `[DllImport("dl")]` and

@@ -11,7 +11,7 @@ tags: [kitsunecommand, prod, websocket, cloudflare-tunnel]
 blocked_by: []
 ---
 
-**Resolved in PR #38.** Root cause was Cloudflare's managed WAF: any WebSocket Upgrade on a path starting with `ws` (tested `/ws`, `/wss`, `/wsx`, `/mywebsocket` — all blocked) returns HTTP 400 at the CF edge and never reaches our tunnel. Fix was to rename KC's WebSocket endpoint from `/ws` to `/socket` — boring name, no WAF rule matches it. Backend (`WebSocketHost`, `EventBroadcaster`), frontend (`useWebSocket.ts`), and prod `/etc/cloudflared/config.yml` all updated together. Verified on prod: `/socket` upgrade now reaches origin (`cf-cache-status: DYNAMIC` in response, not WAF-blocked). Story going into the new troubleshooting doc — see `kc-troubleshooting-docs`.
+**Resolved in PR #38.** Root cause was Cloudflare's managed WAF having rules against two whole classes of path names: anything containing `ws` (blocks the WebSocket Upgrade at edge) *and* anything containing `socket` (blocks any request including plain HEAD/GET). First attempt renamed `/ws` → `/socket`; handshake succeeded but CF severed the stream mid-frame, producing `WebSocketException: header of a frame cannot be read` errors on repeat and a browser-side "Finished 0 kB" WS. Second attempt renamed to `/kcevents` — KC-specific, descriptive, not on any CF deny-list. Backend (`WebSocketHost`, `EventBroadcaster`), frontend (`useWebSocket.ts`), and prod `/etc/cloudflared/config.yml` all use `/kcevents` now. Lesson captured in new troubleshooting doc — see `kc-troubleshooting-docs`.
 
 Along the way also fixed cloudflared resolving `localhost` to `[::1]` while WebSocketSharp binds `0.0.0.0` — tunnel config now uses `http://127.0.0.1:` explicitly.
 
