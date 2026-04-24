@@ -1,14 +1,20 @@
 ---
 id: kc-map-skiasharp
 title: Fix Map view — SkiaSharp native deps on prod
-status: backlog
+status: done
 owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-24
 tags: [kitsunecommand, prod, linux, skiasharp]
 blocked_by: []
 ---
+
+**Resolved in PR #34.** Root cause wasn't native deps (`ldd` confirmed the bundled `libSkiaSharp.so` is dep-free) — it was that SkiaSharp's `LibraryLoader` declares `[DllImport("dl")]` and 7D2D's bundled Mono config has no dllmap for the short name `dl`. Fixed with a per-assembly `SkiaSharp.dll.config` next to the DLL that maps `dl` → `libdl.so.2`. Same mechanism KC already uses for `System.Data.SQLite.dll.config`. Prod log now shows `MapTileRenderer initialized successfully`.
+
+---
+
 
 Prod panel's Map view is broken — SkiaSharp's static constructor throws on Mono/Linux, breaking map tile rendering. Panel otherwise works fine; only the map-tile pipeline is down.
 
