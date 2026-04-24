@@ -1,14 +1,20 @@
 ---
 id: kc-console-password-reset
 title: Console command to reset a KC panel password (kcresetpw)
-status: backlog
+status: done
 owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-24
 tags: [kitsunecommand, auth, feature]
 blocked_by: []
 ---
+
+**Resolved in PR #37.** Shipped as `kcresetpw <username> <newpassword>` — admin-only, min 8-char password, hashes via the existing `PasswordHasher`, writes via `IUserAccountRepository.UpdatePassword`. Exposed `ModLifecycle.Container` statically so `ConsoleCmdAbstract` subclasses (which 7D2D instantiates directly, bypassing Autofac) can resolve services. Verified on prod: ran via `nc localhost 8081`, logged into `panel.kitsuneden.net` with the new password, then changed password through the panel (PR #36 path) and logged in again.
+
+---
+
 
 Add an in-game / telnet console command for resetting a KitsuneCommand panel user's password. Zero external dependencies — server admins already have shell and/or telnet access, so this is the cleanest recovery path for a locked-out admin.
 
