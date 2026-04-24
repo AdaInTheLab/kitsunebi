@@ -59,7 +59,6 @@ const { title = 'kitsunebi' } = Astro.props;
   body {
     margin: 0;
     padding: 0;
-    background: var(--bg-0);
     color: var(--text);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -70,8 +69,32 @@ const { title = 'kitsunebi' } = Astro.props;
 
   body {
     min-height: 100vh;
+    background: var(--bg-0);
+    position: relative;
+  }
+
+  /* Fixed background: Miso-style kitsunebi torii-and-foxfire scene.
+     Pseudo-element so we can stack a dark overlay cleanly and avoid
+     iOS's janky background-attachment: fixed behavior. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
     background:
-      radial-gradient(ellipse at top, #141418 0%, var(--bg-0) 70%);
+      url('/bg/kitsunebi-torii.webp') center center / cover no-repeat;
+    z-index: -2;
+    /* Subtle desaturation to let the foxfire palette win */
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse at center 40%, rgba(10, 10, 14, 0.45) 0%, rgba(10, 10, 14, 0.85) 70%, rgba(10, 10, 14, 0.95) 100%),
+      linear-gradient(180deg, rgba(10, 10, 14, 0.55) 0%, rgba(10, 10, 14, 0.80) 100%);
+    z-index: -1;
+    pointer-events: none;
   }
 
   a {
