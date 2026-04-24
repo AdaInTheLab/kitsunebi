@@ -13,9 +13,9 @@ const sorted = allCards.slice().sort((a, b) => {
 });
 
 const columns = [
-  { status: 'in_progress' as const, label: 'In Progress' },
-  { status: 'blocked' as const, label: 'Blocked' },
   { status: 'backlog' as const, label: 'Backlog' },
+  { status: 'blocked' as const, label: 'Blocked' },
+  { status: 'in_progress' as const, label: 'In Progress' },
   { status: 'done' as const, label: 'Done' },
 ];
 
