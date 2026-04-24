@@ -55,10 +55,10 @@ const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
       {ownerList.length > 0 && (
         <div class="owners" aria-label="Active cards by owner">
           {ownerList.map(([owner, count]) => (
-            <span class="owner-pill">
+            <a href={`/people/${owner}/`} class="owner-pill">
               <span class="owner-name">{owner}</span>
               <span class="owner-count">{count}</span>
-            </span>
+            </a>
           ))}
         </div>
       )}
@@ -159,6 +159,7 @@ const ownerList = [...ownerCounts.entries()].sort((a, b) => b[1] - a[1]);
     border-radius: 999px;
     font-size: 0.72rem;
     color: var(--text-dim);
+    text-decoration: none;
     transition: border-color 150ms ease, color 150ms ease;
   }
 

@@ -27,7 +27,9 @@ const dueClass = daysUntilDue === null
 
 <article class={`card status-${data.status}`} style={`--card-index: ${index};`}>
   <header class="card-head">
-    <h3 class="card-title">{data.title}</h3>
+    <h3 class="card-title">
+      <a href={`/cards/${data.id}/`}>{data.title}</a>
+    </h3>
     <div class="card-meta">
       <span class="owner">🦊 {data.owner}</span>
       {due && (
@@ -50,7 +52,7 @@ const dueClass = daysUntilDue === null
 
   {data.tags.length > 0 && (
     <footer class="card-foot">
-      {data.tags.map((t) => <span class="tag">#{t}</span>)}
+      {data.tags.map((t) => <a href={`/tags/${t}/`} class="tag">#{t}</a>)}
     </footer>
   )}
 </article>
@@ -104,10 +106,21 @@ const dueClass = daysUntilDue === null
     font-size: 1.2rem;
     font-weight: 600;
     margin: 0;
-    color: var(--text);
     line-height: 1.2;
     letter-spacing: 0.005em;
     flex: 1;
+  }
+
+  .card-title a {
+    color: var(--text);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .card-title a:hover {
+    color: var(--flame);
+    border-bottom-color: var(--flame);
   }
 
   .card-meta {
@@ -258,5 +271,11 @@ const dueClass = daysUntilDue === null
     font-size: 0.68rem;
     color: var(--text-soft);
     font-family: var(--font-mono);
+    text-decoration: none;
+    transition: color 150ms ease;
+  }
+
+  .tag:hover {
+    color: var(--flame);
   }
 </style>

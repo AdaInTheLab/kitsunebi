@@ -12,11 +12,14 @@ interface Props {
 const { status, label, cards } = Astro.props;
 ---
 
-<section class={`column status-${status}`}>
+<section class={`column status-${status}`} data-column={status}>
   <header class="column-head">
-    <Flame size={14} class="col-flame" />
-    <h2>{label}</h2>
-    <span class="count">{cards.length}</span>
+    <button class="column-toggle" type="button" aria-label={`Collapse ${label}`} data-toggle={status}>
+      <Flame size={14} class="col-flame" />
+      <h2>{label}</h2>
+      <span class="count">{cards.length}</span>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </button>
   </header>
 
   <div class="column-body">
@@ -27,6 +30,47 @@ const { status, label, cards } = Astro.props;
     )}
   </div>
 </section>
+
+<script>
+  // Column collapse state — persisted per column in localStorage
+  const STORAGE_KEY = 'kitsunebi:collapsed-columns';
+
+  function getCollapsed(): Set<string> {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveCollapsed(set: Set<string>) {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+    } catch {}
+  }
+
+  function applyCollapsed() {
+    const collapsed = getCollapsed();
+    document.querySelectorAll<HTMLElement>('[data-column]').forEach((col) => {
+      const key = col.dataset.column!;
+      col.classList.toggle('is-collapsed', collapsed.has(key));
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-toggle]');
+    if (!btn) return;
+    const key = btn.dataset.toggle!;
+    const collapsed = getCollapsed();
+    if (collapsed.has(key)) collapsed.delete(key);
+    else collapsed.add(key);
+    saveCollapsed(collapsed);
+    applyCollapsed();
+  });
+
+  applyCollapsed();
+</script>
 
 <style>
   .column {
@@ -42,17 +86,47 @@ const { status, label, cards } = Astro.props;
   .status-archived { --flame: var(--flame-archived); --flame-glow: var(--flame-archived-glow); }
 
   .column-head {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    padding: 0.5rem 0.25rem 0.85rem;
+    padding: 0.5rem 0 0.85rem;
     border-bottom: 1px solid var(--border);
     margin-bottom: 0.9rem;
     position: sticky;
     top: 0;
-    background: linear-gradient(180deg, var(--bg-0) 85%, transparent);
-    backdrop-filter: blur(4px);
+    background: linear-gradient(180deg, rgba(10,10,14,0.92) 85%, transparent);
+    backdrop-filter: blur(6px);
     z-index: 1;
+  }
+
+  .column-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0 0.25rem;
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+  }
+
+  .chevron {
+    margin-left: auto;
+    color: var(--text-soft);
+    font-size: 0.7rem;
+    transition: transform 180ms ease, color 180ms ease;
+  }
+
+  .column-toggle:hover .chevron {
+    color: var(--flame);
+  }
+
+  .is-collapsed .chevron {
+    transform: rotate(-90deg);
+  }
+
+  .is-collapsed .column-body {
+    display: none;
   }
 
   .column :global(.col-flame) {
