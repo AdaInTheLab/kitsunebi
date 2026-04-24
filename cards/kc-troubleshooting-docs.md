@@ -24,15 +24,26 @@ Each entry: **symptom → cause → fix** in that order. Operators scan for
 the symptom, so the headline has to be what they see.
 
 - **Live badge never turns green on prod; WebSocket "Finished 0 kB".**
-  Cloudflare's managed WAF has rules against both paths containing
-  `ws` (blocks WebSocket Upgrade at edge) AND paths containing
-  `socket` (blocks *any* request, even plain GET). Second one is
-  sneakier: the handshake succeeds, then CF severs the stream
-  mid-frame, producing `WebSocketException: The header of a frame
-  cannot be read from the stream` in the KC log on repeat. KC now
-  uses `/kcevents` (PR #38). If you see this, confirm your
-  reverse-proxy / tunnel is forwarding `/kcevents` to port 8889. Do
-  not rename the KC endpoint to anything with "ws" or "socket" in it.
+  WebSocketSharp's WebSocketServer does strict Host-header validation
+  and rejects requests whose Host doesn't match the authority it was
+  bound to — with HTTP 400 *before* OnOpen runs, so token-validation
+  logging never fires. Cloudflared by default forwards the public
+  hostname (`panel.example.com`) which doesn't match the local bind.
+  Fix is **one line in the tunnel config**: `httpHostHeader:
+  "localhost:8889"` on the WS ingress rule. Two sharp edges:
+    1. Must be `host:port` form. Bare `localhost` still gets rejected.
+    2. Use `127.0.0.1` (not `localhost`) in the service URL —
+       cloudflared resolves to `::1` first, KC binds `0.0.0.0`.
+
+  See `docs/cloudflared-tunnel.example.yml` in the repo for the full
+  proven config. (PR #38.)
+
+  Side note: I spent most of an afternoon convinced this was Cloudflare
+  WAF blocking specific paths (`/ws`, `/socket`, `/events`). It wasn't.
+  Every "WAF block" I diagnosed was WebSocketSharp's host check
+  returning 400 with `Server: cloudflare` mistakenly stamped on by CF's
+  proxy layer. Don't burn time renaming the WS path — fix the Host
+  header.
 
 - **`MapTileRenderer initialization failed: … dl assembly:<unknown>`**
   on Linux. SkiaSharp's `LibraryLoader` does `[DllImport("dl")]` and

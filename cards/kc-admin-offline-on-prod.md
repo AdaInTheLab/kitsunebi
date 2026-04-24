@@ -11,7 +11,16 @@ tags: [kitsunecommand, prod, websocket, cloudflare-tunnel]
 blocked_by: []
 ---
 
-**Resolved in PR #38.** Root cause was Cloudflare's managed WAF having rules against two whole classes of path names: anything containing `ws` (blocks the WebSocket Upgrade at edge) *and* anything containing `socket` (blocks any request including plain HEAD/GET). First attempt renamed `/ws` → `/socket`; handshake succeeded but CF severed the stream mid-frame, producing `WebSocketException: header of a frame cannot be read` errors on repeat and a browser-side "Finished 0 kB" WS. Second attempt renamed to `/kcevents` — KC-specific, descriptive, not on any CF deny-list. Backend (`WebSocketHost`, `EventBroadcaster`), frontend (`useWebSocket.ts`), and prod `/etc/cloudflared/config.yml` all use `/kcevents` now. Lesson captured in new troubleshooting doc — see `kc-troubleshooting-docs`.
+**Resolved in PR #38.** The real fix was **one line in cloudflared's tunnel config: `originRequest.httpHostHeader: "localhost:8889"` on the WS ingress rule**. The whole afternoon-long path-rename rabbit hole (`/ws` → `/socket` → `/kcevents` → `/kctunnel`) turned out to be chasing a phantom — the 400s I kept attributing to "Cloudflare WAF blocks paths with `ws` / `socket` / `events`" were actually WebSocketSharp's strict Host-header validation rejecting the request *before* OnOpen ever fired. Cloudflare just rewrites `Server: cloudflare` on every proxied response, so origin-rejected 400s look identical to edge-rejected 400s.
+
+Concrete diagnostic that finally cracked it: `tcpdump -i lo -A 'tcp port 8889'` showed cloudflared was forwarding `Host: panel.kitsuneden.net` to origin, and direct-replay of those exact headers reproduced 400-from-WebSocketSharp on localhost. Then narrow bisection found the rule: WebSocketSharp accepts `Host: 127.0.0.1:8889` and `Host: localhost:8889` but rejects bare `localhost` or any non-IP authority. Two non-obvious gotchas, both documented in `docs/cloudflared-tunnel.example.yml`:
+
+1. `httpHostHeader` must be `host:port` form, not just `host`.
+2. Service URL must use `127.0.0.1` not `localhost` — cloudflared resolves to `::1` first (IPv6) and KC's WS server only binds `0.0.0.0` (IPv4).
+
+Also-fixed in the same PR: `TokenValidator.ValidateToken` now logs token length / prefix / suffix / base64url decode result on `unprotect returned null` — what made the original silent failure cost us so long is that "valid token rejected by WebSocketSharp host check" and "stale token failing crypto" both showed up in the browser as identical "Finished 0 KB" WebSockets.
+
+The `/ws` → `/kctunnel` rename is harmless and we kept it (KC-prefixed, won't ever collide), but it was not necessary for the fix. Lessons going into the troubleshooting doc — see `kc-troubleshooting-docs`.
 
 Along the way also fixed cloudflared resolving `localhost` to `[::1]` while WebSocketSharp binds `0.0.0.0` — tunnel config now uses `http://127.0.0.1:` explicitly.
 
