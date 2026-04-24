@@ -1,14 +1,20 @@
 ---
 id: kc-login-polish
 title: Polish KC login page (logo, password bar, language dropdown)
-status: backlog
+status: done
 owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-24
 tags: [kitsunecommand, polish, frontend]
 blocked_by: []
 ---
+
+**Resolved in PR #35.** All three items landed in one pass: fox logo (Ada-provided `kitsune-command-logo-transparent.png`) rendered above the gradient title on login, password input made full-width via `:deep(.p-password)` / `.p-password-input` CSS overrides so it matches the username box pixel-for-pixel, language dropdown yanked from the absolute-positioned top-right corner and relocated to the footer next to "MANAGEMENT". Bonus: same logo dropped above the sidebar brand name on every authenticated page.
+
+---
+
 
 Login page has three visual snags worth cleaning up in one pass.
 
