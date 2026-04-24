@@ -1,0 +1,99 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import Card from './Card.astro';
+
+interface Props {
+  status: 'backlog' | 'in_progress' | 'blocked' | 'done' | 'archived';
+  label: string;
+  cards: CollectionEntry<'cards'>[];
+}
+
+const { status, label, cards } = Astro.props;
+---
+
+<section class={`column status-${status}`}>
+  <header class="column-head">
+    <span class="flame" aria-hidden="true"></span>
+    <h2>{label}</h2>
+    <span class="count">{cards.length}</span>
+  </header>
+
+  <div class="column-body">
+    {cards.length === 0 ? (
+      <div class="empty">— quiet —</div>
+    ) : (
+      cards.map((card) => <Card card={card} />)
+    )}
+  </div>
+</section>
+
+<style>
+  .column {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .status-backlog { --flame: var(--flame-backlog); --flame-glow: var(--flame-backlog-glow); }
+  .status-in_progress { --flame: var(--flame-in_progress); --flame-glow: var(--flame-in_progress-glow); }
+  .status-blocked { --flame: var(--flame-blocked); --flame-glow: var(--flame-blocked-glow); }
+  .status-done { --flame: var(--flame-done); --flame-glow: var(--flame-done-glow); }
+  .status-archived { --flame: var(--flame-archived); --flame-glow: var(--flame-archived-glow); }
+
+  .column-head {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.5rem 0.25rem 0.85rem;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.9rem;
+    position: sticky;
+    top: 0;
+    background: linear-gradient(180deg, var(--bg-0) 85%, transparent);
+    backdrop-filter: blur(4px);
+    z-index: 1;
+  }
+
+  .flame {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--flame);
+    box-shadow: 0 0 10px var(--flame), 0 0 22px var(--flame-glow);
+    animation: flicker 2.8s ease-in-out infinite alternate;
+  }
+
+  @keyframes flicker {
+    0% { opacity: 0.85; transform: scale(1); }
+    40% { opacity: 1; transform: scale(1.08); }
+    70% { opacity: 0.92; transform: scale(0.98); }
+    100% { opacity: 0.88; transform: scale(1.05); }
+  }
+
+  .column-head h2 {
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0;
+    flex: 1;
+  }
+
+  .count {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+    padding: 0.1rem 0.5rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 999px;
+  }
+
+  .empty {
+    font-size: 0.8rem;
+    color: var(--text-soft);
+    text-align: center;
+    padding: 1.5rem 0.5rem;
+    font-style: italic;
+  }
+</style>

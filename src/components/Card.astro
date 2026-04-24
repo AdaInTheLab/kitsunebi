@@ -1,0 +1,193 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { render } from 'astro:content';
+
+interface Props {
+  card: CollectionEntry<'cards'>;
+}
+
+const { card } = Astro.props;
+const { Content } = await render(card);
+const data = card.data;
+
+const due = data.due ? new Date(data.due) : null;
+const now = new Date();
+const daysUntilDue = due ? Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+const dueClass = daysUntilDue === null
+  ? ''
+  : daysUntilDue < 0
+    ? 'overdue'
+    : daysUntilDue <= 3
+      ? 'urgent'
+      : daysUntilDue <= 7
+        ? 'soon'
+        : '';
+---
+
+<article class={`card status-${data.status}`}>
+  <header class="card-head">
+    <h3 class="card-title">{data.title}</h3>
+    <div class="card-meta">
+      <span class="owner">🦊 {data.owner}</span>
+      {due && (
+        <span class={`due ${dueClass}`} title={data.due ?? undefined}>
+          {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        </span>
+      )}
+    </div>
+  </header>
+
+  {data.collaborators.length > 0 && (
+    <div class="collaborators">
+      {data.collaborators.map((c) => <span class="chip">{c}</span>)}
+    </div>
+  )}
+
+  <div class="card-body">
+    <Content />
+  </div>
+
+  {data.tags.length > 0 && (
+    <footer class="card-foot">
+      {data.tags.map((t) => <span class="tag">#{t}</span>)}
+    </footer>
+  )}
+</article>
+
+<style>
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--flame);
+    border-radius: 6px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.75rem;
+    box-shadow: 0 1px 0 var(--flame-glow) inset, 0 0 18px -8px var(--flame-glow);
+    transition: transform 120ms ease, box-shadow 180ms ease, background 160ms ease;
+  }
+
+  .card:hover {
+    background: var(--bg-card-hover);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 0 var(--flame-glow) inset, 0 0 22px -6px var(--flame-glow);
+  }
+
+  .status-backlog { --flame: var(--flame-backlog); --flame-glow: var(--flame-backlog-glow); }
+  .status-in_progress { --flame: var(--flame-in_progress); --flame-glow: var(--flame-in_progress-glow); }
+  .status-blocked { --flame: var(--flame-blocked); --flame-glow: var(--flame-blocked-glow); }
+  .status-done { --flame: var(--flame-done); --flame-glow: var(--flame-done-glow); }
+  .status-archived { --flame: var(--flame-archived); --flame-glow: var(--flame-archived-glow); opacity: 0.55; }
+
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.6rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+    line-height: 1.3;
+    flex: 1;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    align-items: flex-end;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .owner {
+    color: var(--text-dim);
+  }
+
+  .due {
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .due.soon { color: var(--flame-done); }
+  .due.urgent { color: var(--flame-in_progress); font-weight: 600; }
+  .due.overdue { color: var(--flame-blocked); font-weight: 700; }
+
+  .collaborators {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .chip {
+    background: var(--bg-0);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.08rem 0.55rem;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+  }
+
+  .card-body {
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  .card-body :global(p) {
+    margin: 0 0 0.6em 0;
+  }
+
+  .card-body :global(p:last-child) {
+    margin-bottom: 0;
+  }
+
+  .card-body :global(ul) {
+    padding-left: 1.1em;
+    margin: 0.4em 0;
+  }
+
+  .card-body :global(li) {
+    margin-bottom: 0.15em;
+  }
+
+  .card-body :global(input[type="checkbox"]) {
+    accent-color: var(--flame);
+    margin-right: 0.35em;
+  }
+
+  .card-body :global(h1),
+  .card-body :global(h2),
+  .card-body :global(h3),
+  .card-body :global(h4) {
+    font-size: 0.85rem;
+    margin: 0.9em 0 0.3em 0;
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .card-body :global(strong) {
+    color: var(--text);
+  }
+
+  .card-foot {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.75rem;
+    padding-top: 0.6rem;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .tag {
+    font-size: 0.68rem;
+    color: var(--text-soft);
+    font-family: var(--font-mono);
+  }
+</style>

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <radialGradient id="flame" cx="50%" cy="55%" r="55%">
+      <stop offset="0%" stop-color="#ffd5a0" />
+      <stop offset="40%" stop-color="#ff8a3d" />
+      <stop offset="85%" stop-color="#d14a1e" />
+      <stop offset="100%" stop-color="#d14a1e00" />
+    </radialGradient>
+  </defs>
+  <circle cx="16" cy="17" r="12" fill="url(#flame)" />
+  <circle cx="16" cy="15" r="5" fill="#fff5d6" opacity="0.85" />
+</svg>

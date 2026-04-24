@@ -1,0 +1,157 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import Column from '../components/Column.astro';
+
+const allCards = await getCollection('cards');
+
+// Sort: newer `created` dates first within a column; overdue/urgent float up within in-progress
+const sorted = allCards.slice().sort((a, b) => {
+  const ca = a.data.created || '';
+  const cb = b.data.created || '';
+  return cb.localeCompare(ca);
+});
+
+const columns = [
+  { status: 'in_progress' as const, label: 'In Progress' },
+  { status: 'blocked' as const, label: 'Blocked' },
+  { status: 'backlog' as const, label: 'Backlog' },
+  { status: 'done' as const, label: 'Done' },
+];
+
+const cardsByStatus = Object.fromEntries(
+  columns.map((c) => [c.status, sorted.filter((card) => card.data.status === c.status)])
+);
+
+const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.length + cardsByStatus.backlog.length;
+---
+
+<Layout title="kitsunebi — the Skulk's board">
+  <main>
+    <header class="site-head">
+      <div class="brand">
+        <span class="brand-flame" aria-hidden="true"></span>
+        <h1>kitsunebi</h1>
+      </div>
+      <p class="tagline">
+        A board for the Skulk. Each card a flame, the whole a procession of lanterns.
+      </p>
+      <div class="stats">
+        <span>{allCards.length} cards total</span>
+        <span class="dot">·</span>
+        <span>{totalActive} active</span>
+        <span class="dot">·</span>
+        <span>{cardsByStatus.done.length} shipped</span>
+      </div>
+    </header>
+
+    <div class="board">
+      {columns.map((c) => (
+        <Column status={c.status} label={c.label} cards={cardsByStatus[c.status]} />
+      ))}
+    </div>
+
+    <footer class="site-foot">
+      <span>
+        Cards live as markdown in <code>cards/</code>.
+        Edit any card to change its state — status lives in frontmatter.
+      </span>
+      <span class="divider">·</span>
+      <span>Skulk persists eternal. 🦊</span>
+    </footer>
+  </main>
+</Layout>
+
+<style>
+  main {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  .site-head {
+    margin-bottom: 2.5rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .brand-flame {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--flame-in_progress);
+    box-shadow:
+      0 0 12px var(--flame-in_progress),
+      0 0 30px var(--flame-in_progress-glow),
+      0 0 60px var(--flame-in_progress-glow);
+    animation: flicker 3.2s ease-in-out infinite alternate;
+  }
+
+  @keyframes flicker {
+    0% { opacity: 0.85; transform: scale(1); }
+    40% { opacity: 1; transform: scale(1.1); }
+    70% { opacity: 0.9; transform: scale(0.95); }
+    100% { opacity: 0.92; transform: scale(1.05); }
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    margin: 0;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .tagline {
+    color: var(--text-dim);
+    margin: 0 0 0.75rem 0;
+    font-size: 0.95rem;
+  }
+
+  .stats {
+    display: flex;
+    gap: 0.55rem;
+    color: var(--text-soft);
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .dot {
+    opacity: 0.5;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 1100px) {
+    .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 640px) {
+    .board { grid-template-columns: 1fr; }
+  }
+
+  .site-foot {
+    margin-top: 4rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-soft);
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: space-between;
+  }
+
+  .divider {
+    opacity: 0.4;
+  }
+</style>
