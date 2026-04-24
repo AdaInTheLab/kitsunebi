@@ -28,6 +28,18 @@ Description in markdown. Subtasks as checkboxes.
 - [ ] Provision Hetzner box
 ```
 
+## Images / media on cards
+
+Drop files into `public/attachments/<card-id>/` (git-committed for now) and reference them from the card body:
+
+```markdown
+![Hetzner console showing the CAX21 provisioned](/attachments/vesper-deploy/hetzner-console.png)
+```
+
+Supports any format a browser renders inline (PNG, JPG, WebP, SVG, GIF, MP4, WebM). Images inherit the foxfire aesthetic — rounded corners, subtle border, glow on card hover.
+
+Web UI drag-and-drop upload → Vercel Blob is Phase 2.
+
 ## Running locally
 
 ```bash

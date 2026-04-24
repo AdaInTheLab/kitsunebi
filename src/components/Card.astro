@@ -176,6 +176,34 @@ const dueClass = daysUntilDue === null
     color: var(--text);
   }
 
+  .card-body :global(img),
+  .card-body :global(video) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0.6em 0;
+    border-radius: 4px;
+    border: 1px solid var(--border-soft);
+    transition: border-color 180ms ease, box-shadow 220ms ease;
+  }
+
+  .card:hover .card-body :global(img),
+  .card:hover .card-body :global(video) {
+    border-color: var(--flame);
+    box-shadow: 0 0 14px -4px var(--flame-glow);
+  }
+
+  .card-body :global(figure) {
+    margin: 0.6em 0;
+  }
+
+  .card-body :global(figcaption) {
+    font-size: 0.72rem;
+    color: var(--text-soft);
+    margin-top: 0.3em;
+    font-style: italic;
+  }
+
   .card-foot {
     display: flex;
     flex-wrap: wrap;
