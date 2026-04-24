@@ -90,9 +90,15 @@ const { title = 'kitsunebi' } = Astro.props;
     content: '';
     position: fixed;
     inset: 0;
-    background:
-      radial-gradient(ellipse at center 40%, rgba(10, 10, 14, 0.45) 0%, rgba(10, 10, 14, 0.85) 70%, rgba(10, 10, 14, 0.95) 100%),
-      linear-gradient(180deg, rgba(10, 10, 14, 0.55) 0%, rgba(10, 10, 14, 0.80) 100%);
+    /* Very light vignette only — the image is already dark, cards
+       have their own dark fill, so we just need corners framed and
+       a hint of mood, not a wall of darkness. */
+    background: radial-gradient(
+      ellipse at center,
+      rgba(10, 10, 14, 0.05) 0%,
+      rgba(10, 10, 14, 0.35) 70%,
+      rgba(10, 10, 14, 0.55) 100%
+    );
     z-index: -1;
     pointer-events: none;
   }
