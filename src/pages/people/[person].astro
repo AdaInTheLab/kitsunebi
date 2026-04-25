@@ -4,30 +4,19 @@ import Layout from '../../layouts/Layout.astro';
 import Card from '../../components/Card.astro';
 import Flame from '../../components/Flame.astro';
 
-export async function getStaticPaths() {
-  const cards = await getCollection('cards');
-  const peopleMap = new Map<string, typeof cards>();
-
-  for (const card of cards) {
-    // Owner
-    if (!peopleMap.has(card.data.owner)) peopleMap.set(card.data.owner, []);
-    peopleMap.get(card.data.owner)!.push(card);
-
-    // Collaborators
-    for (const collab of card.data.collaborators) {
-      if (collab === card.data.owner) continue;
-      if (!peopleMap.has(collab)) peopleMap.set(collab, []);
-      peopleMap.get(collab)!.push(card);
-    }
-  }
-
-  return [...peopleMap.entries()].map(([person, personCards]) => ({
-    params: { person },
-    props: { person, cards: personCards },
-  }));
+// Server-rendered: collect cards owned by or collaborated on by `person`
+// at request time.
+const { person } = Astro.params;
+if (!person) {
+  return new Response('Not Found', { status: 404 });
 }
-
-const { person, cards } = Astro.props;
+const allCards = await getCollection('cards');
+const cards = allCards.filter(
+  (c) => c.data.owner === person || (c.data.collaborators ?? []).includes(person)
+);
+if (cards.length === 0) {
+  return new Response('Not Found', { status: 404 });
+}
 
 const statusOrder = ['in_progress', 'blocked', 'backlog', 'done', 'archived'];
 const sorted = cards.slice().sort((a, b) => {

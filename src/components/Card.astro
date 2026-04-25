@@ -32,6 +32,8 @@ const dueClass = daysUntilDue === null
   data-collaborators={data.collaborators.join(',')}
   data-tags={data.tags.join(',')}
   data-card-id={data.id}
+  data-status={data.status}
+  draggable="true"
 >
   <header class="card-head">
     <h3 class="card-title">
@@ -98,6 +100,22 @@ const dueClass = daysUntilDue === null
   .card.kbd-focus {
     outline: 1px solid var(--flame);
     outline-offset: 1px;
+  }
+
+  /* Drag-and-drop affordances. Cards are draggable from anywhere; we use
+     `cursor: grab` on hover so it's discoverable, and `grabbing` while held. */
+  .card { cursor: grab; }
+  .card:active { cursor: grabbing; }
+
+  .card.is-dragging {
+    opacity: 0.45;
+    transform: scale(0.98) translateY(-1px);
+  }
+
+  /* Don't let inner links/buttons override the grab cursor — but DO let
+     them remain clickable. The drag listener stops short of them. */
+  .card a, .card button {
+    cursor: pointer;
   }
 
   .status-backlog { --flame: var(--flame-backlog); --flame-glow: var(--flame-backlog-glow); }

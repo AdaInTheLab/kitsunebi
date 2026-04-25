@@ -1,17 +1,18 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getEntry, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import Flame from '../../components/Flame.astro';
 
-export async function getStaticPaths() {
-  const cards = await getCollection('cards');
-  return cards.map((card) => ({
-    params: { id: card.id },
-    props: { card },
-  }));
+// Server-rendered. We read the card from disk on every request so post-API
+// mutations (drag-drop, inline edit) show up immediately without a rebuild.
+const { id } = Astro.params;
+if (!id) {
+  return new Response('Not Found', { status: 404 });
 }
-
-const { card } = Astro.props;
+const card = await getEntry('cards', id);
+if (!card) {
+  return new Response('Not Found', { status: 404 });
+}
 const { Content } = await render(card);
 const data = card.data;
 
@@ -92,8 +93,71 @@ const fmt = (d: Date | null) =>
       <section class="detail-body">
         <Content />
       </section>
+
+      <section class="detail-attach" aria-label="Attach an image to this card">
+        <label class="attach-button" for={`upload-${data.id}`}>
+          <span class="attach-icon" aria-hidden="true">＋</span>
+          <span>Attach image</span>
+        </label>
+        <input
+          type="file"
+          id={`upload-${data.id}`}
+          accept="image/*"
+          class="attach-input"
+          data-card-id={data.id}
+        />
+        <span class="attach-status" data-attach-status></span>
+      </section>
     </article>
   </main>
+
+  <script>
+    // Image upload on the card detail page. Uses the existing
+    // POST /api/cards/:id/attachments endpoint with appendToBody=true,
+    // so the picture both lands on disk AND appears in the card body
+    // without a manual edit step.
+    document.addEventListener('change', async (e) => {
+      const input = e.target as HTMLInputElement | null;
+      if (!input || !input.classList.contains('attach-input')) return;
+      const file = input.files?.[0];
+      if (!file) return;
+
+      const cardId = input.dataset.cardId;
+      if (!cardId) return;
+
+      const status = document.querySelector<HTMLElement>('[data-attach-status]');
+      const showStatus = (msg: string, kind: 'idle' | 'work' | 'ok' | 'err' = 'idle') => {
+        if (!status) return;
+        status.textContent = msg;
+        status.dataset.kind = kind;
+      };
+
+      showStatus(`Uploading ${file.name}…`, 'work');
+      input.disabled = true;
+
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('appendToBody', 'true');
+
+      try {
+        const r = await fetch(`/api/cards/${encodeURIComponent(cardId)}/attachments`, {
+          method: 'POST',
+          body: fd,
+        });
+        if (!r.ok) {
+          const errBody = await r.text();
+          throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+        }
+        showStatus('Uploaded — refreshing…', 'ok');
+        // Reload to render the freshly-appended markdown.
+        window.location.reload();
+      } catch (err) {
+        console.error('upload failed:', err);
+        showStatus(err instanceof Error ? err.message : 'upload failed', 'err');
+        input.disabled = false;
+      }
+    });
+  </script>
 </Layout>
 
 <style>
@@ -292,4 +356,65 @@ const fmt = (d: Date | null) =>
     font-style: italic;
     opacity: 0.9;
   }
+
+  /* ---------- attach image control ---------- */
+  .detail-attach {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin-top: 1.6rem;
+    padding-top: 1rem;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .attach-input {
+    /* Visually hidden but still in the tab order; the <label> is the
+       clickable affordance. */
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .attach-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.85rem;
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+  }
+
+  .attach-button:hover,
+  .attach-input:focus + .attach-button,
+  .attach-input:focus-visible ~ .attach-button {
+    border-color: var(--flame);
+    color: var(--flame);
+    background: var(--flame-glow);
+  }
+
+  .attach-icon {
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--flame);
+  }
+
+  .attach-status {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .attach-status[data-kind="work"] { color: var(--flame-in_progress); }
+  .attach-status[data-kind="ok"]   { color: var(--flame-done); }
+  .attach-status[data-kind="err"]  { color: var(--flame-blocked); }
 </style>

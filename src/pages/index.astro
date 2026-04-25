@@ -188,6 +188,133 @@ const allPeople = [...peopleSet].sort();
         applyFilters();
       });
 
+      // ---------- Drag-and-drop between status columns ----------
+      // Cards have `draggable="true"`. Each column body has `data-column="<status>"`.
+      // On drop:
+      //   1. Optimistically move the DOM node and update visible counts.
+      //   2. POST /api/cards/:id/move.
+      //   3. On error, snap the card back and surface a banner.
+      //
+      // No frameworks; HTML5 drag/drop fires plenty of events for this.
+
+      let draggingCardId: string | null = null;
+      let draggingFromStatus: string | null = null;
+
+      document.addEventListener('dragstart', (e) => {
+        const card = (e.target as HTMLElement).closest<HTMLElement>('.card');
+        if (!card) return;
+        draggingCardId = card.dataset.cardId ?? null;
+        draggingFromStatus = card.dataset.status ?? null;
+        card.classList.add('is-dragging');
+        // Required for Firefox to let the drag start at all.
+        e.dataTransfer?.setData('text/plain', draggingCardId ?? '');
+        if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+      });
+
+      document.addEventListener('dragend', () => {
+        document.querySelectorAll<HTMLElement>('.card.is-dragging').forEach((c) => c.classList.remove('is-dragging'));
+        document.querySelectorAll<HTMLElement>('[data-column].drop-target').forEach((c) => c.classList.remove('drop-target'));
+        draggingCardId = null;
+        draggingFromStatus = null;
+      });
+
+      // Allow drop targets only when something kitsunebi-shaped is being dragged.
+      function targetColumn(target: EventTarget | null): HTMLElement | null {
+        if (!(target instanceof HTMLElement)) return null;
+        return target.closest<HTMLElement>('[data-column]');
+      }
+
+      document.addEventListener('dragover', (e) => {
+        if (!draggingCardId) return;
+        const col = targetColumn(e.target);
+        if (!col) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+        col.classList.add('drop-target');
+      });
+
+      document.addEventListener('dragleave', (e) => {
+        const col = targetColumn(e.target);
+        if (!col) return;
+        // Only un-highlight when actually leaving the column (relatedTarget is
+        // outside it). Without this check, hovering between children flickers.
+        const into = (e as DragEvent).relatedTarget as Node | null;
+        if (into && col.contains(into)) return;
+        col.classList.remove('drop-target');
+      });
+
+      document.addEventListener('drop', async (e) => {
+        if (!draggingCardId) return;
+        const col = targetColumn(e.target);
+        if (!col) return;
+        e.preventDefault();
+        col.classList.remove('drop-target');
+
+        const newStatus = col.dataset.column;
+        if (!newStatus || newStatus === draggingFromStatus) return;
+
+        const cardEl = document.querySelector<HTMLElement>(`.card[data-card-id="${CSS.escape(draggingCardId)}"]`);
+        if (!cardEl) return;
+
+        const sourceCol = document.querySelector<HTMLElement>(`[data-column="${CSS.escape(draggingFromStatus ?? '')}"]`);
+        const targetBody = col.querySelector<HTMLElement>('.column-body');
+        if (!targetBody) return;
+
+        // Optimistic move.
+        const cardId = draggingCardId;
+        const originalStatusClass = `status-${draggingFromStatus}`;
+        const newStatusClass = `status-${newStatus}`;
+        cardEl.classList.remove(originalStatusClass);
+        cardEl.classList.add(newStatusClass);
+        cardEl.dataset.status = newStatus;
+        // Drop the empty-state placeholder if present in the target.
+        const emptyPlaceholder = targetBody.querySelector('.empty');
+        if (emptyPlaceholder) emptyPlaceholder.remove();
+        targetBody.appendChild(cardEl);
+        updateColumnCount(sourceCol);
+        updateColumnCount(col);
+        cardEl.classList.add('drop-success');
+        setTimeout(() => cardEl.classList.remove('drop-success'), 700);
+
+        try {
+          const r = await fetch(`/api/cards/${encodeURIComponent(cardId)}/move`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+          });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        } catch (err) {
+          // Snap back. Best-effort: put it where it came from; if the original
+          // column collapsed in the meantime, leave it where it is and tell the user.
+          console.error('move failed:', err);
+          cardEl.classList.remove(newStatusClass);
+          cardEl.classList.add(originalStatusClass);
+          cardEl.dataset.status = draggingFromStatus ?? '';
+          if (sourceCol) {
+            const sourceBody = sourceCol.querySelector<HTMLElement>('.column-body');
+            if (sourceBody) sourceBody.appendChild(cardEl);
+            updateColumnCount(sourceCol);
+            updateColumnCount(col);
+          }
+          alert(`Couldn't move card: ${err instanceof Error ? err.message : 'unknown error'}\nThe card was reverted.`);
+        }
+      });
+
+      function updateColumnCount(col: HTMLElement | null) {
+        if (!col) return;
+        const count = col.querySelectorAll('.card').length;
+        const countEl = col.querySelector('.count');
+        if (countEl) countEl.textContent = String(count);
+        // If the target now has zero cards, drop a "— quiet —" placeholder back in.
+        const body = col.querySelector('.column-body');
+        if (body && count === 0 && !body.querySelector('.empty')) {
+          const empty = document.createElement('div');
+          empty.className = 'empty';
+          empty.textContent = '— quiet —';
+          body.appendChild(empty);
+        }
+      }
+
       // Keyboard navigation:
       //   /       focus filter
       //   Escape  blur filter, or clear card focus
@@ -463,6 +590,30 @@ const allPeople = [...peopleSet].sort();
 
   @media (max-width: 640px) {
     .board { grid-template-columns: 1fr; }
+  }
+
+  /* While dragging, show columns as receptive. The :global() escapes
+     scoped styles to reach the [data-column] elements rendered by Column.astro. */
+  :global([data-column].drop-target .column-body) {
+    background: rgba(255, 255, 255, 0.025);
+    box-shadow: inset 0 0 0 1px var(--flame-in_progress-glow), inset 0 0 32px -8px var(--flame-in_progress-glow);
+    border-radius: 6px;
+    transition: background 120ms ease, box-shadow 120ms ease;
+  }
+
+  /* Brief pulse confirming a successful drop. */
+  :global(.card.drop-success) {
+    animation: dropPulse 700ms ease-out;
+  }
+
+  @keyframes dropPulse {
+    0%   { box-shadow: 0 0 0 0 var(--flame-glow), 0 0 0 1px var(--flame); }
+    60%  { box-shadow: 0 0 22px 4px var(--flame-glow), 0 0 0 1px var(--flame); }
+    100% { box-shadow: 0 1px 0 var(--flame-glow) inset, 0 0 18px -8px var(--flame-glow); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.card.drop-success) { animation: none; }
   }
 
   .site-foot {

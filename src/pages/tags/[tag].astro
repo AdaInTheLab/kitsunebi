@@ -4,24 +4,17 @@ import Layout from '../../layouts/Layout.astro';
 import Card from '../../components/Card.astro';
 import Flame from '../../components/Flame.astro';
 
-export async function getStaticPaths() {
-  const cards = await getCollection('cards');
-  const tagMap = new Map<string, typeof cards>();
-
-  for (const card of cards) {
-    for (const tag of card.data.tags) {
-      if (!tagMap.has(tag)) tagMap.set(tag, []);
-      tagMap.get(tag)!.push(card);
-    }
-  }
-
-  return [...tagMap.entries()].map(([tag, taggedCards]) => ({
-    params: { tag },
-    props: { tag, cards: taggedCards },
-  }));
+// Server-rendered: filter cards by tag at request time. Same fresh-from-disk
+// property as the rest of the site post-server-mode switch.
+const { tag } = Astro.params;
+if (!tag) {
+  return new Response('Not Found', { status: 404 });
 }
-
-const { tag, cards } = Astro.props;
+const allCards = await getCollection('cards');
+const cards = allCards.filter((c) => c.data.tags?.includes(tag));
+if (cards.length === 0) {
+  return new Response('Not Found', { status: 404 });
+}
 
 const statusOrder = ['in_progress', 'blocked', 'backlog', 'done', 'archived'];
 const sorted = cards.slice().sort((a, b) => {
