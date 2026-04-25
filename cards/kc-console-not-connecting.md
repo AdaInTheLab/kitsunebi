@@ -1,13 +1,18 @@
 ---
 id: kc-console-not-connecting
 title: Console view doesn't connect on prod
-status: backlog
+status: done
 owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-24
 tags: [kitsunecommand, prod, websocket, telnet, cloudflare-tunnel]
 blocked_by: []
+---
+
+**Resolved as a side-effect of PR #38** (the `kc-admin-offline-on-prod` fix). Console view uses the same `useWebSocket` composable hitting the same `/kctunnel` endpoint as the dashboard's Live badge — so the cloudflared `httpHostHeader: "localhost:8889"` change that made the dashboard's WS land at origin also unblocks the console relay. Verify on first open by issuing `listplayers` in the panel's Console view; should stream output. If it ever stops working again, root cause is almost certainly Host-header drift on the tunnel side, not the telnet relay itself — see `kc-troubleshooting-docs`.
+
 ---
 
 Panel's Console view is backed by a WebSocket that relays between browser and 7D2D's telnet interface. Works on dev. On prod (`panel.kitsuneden.net`), the Console view is empty — no log output, commands don't do anything.
