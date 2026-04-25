@@ -49,35 +49,46 @@ kitsunebi runs on the DreamHost VPS shared with `lab-api`, fronted by the same C
 
 ### One-time setup
 
-On your laptop:
+**1. SSH access.** Confirm your laptop key reaches the VPS:
 
 ```bash
-# Make sure your SSH key works
 ssh -i ~/.ssh/hpl_notebook_deploy humanpatternlab@vps32678.dreamhostps.com 'whoami'
 ```
 
-On the VPS:
+**2. Project root on the VPS.** Bootstrap the directory and clone this repo (the VPS keeps its own working copy so the running app's `git-sync` layer can `commit && push` after every batch of API mutations):
 
 ```bash
-# Create the project root + log dir
-mkdir -p ~/kitsunebi.kitsuneden.net/logs
-
-# Add a route to the existing Cloudflare Tunnel so kitsunebi.kitsuneden.net
-# proxies to localhost:8002. The cf-tunnel daemon is shared with lab-api.
-# Easiest path: Cloudflare dashboard → Zero Trust → Networks → Tunnels →
-# the tunnel that handles api.thehumanpatternlab.com → Public Hostnames →
-# Add hostname:
-#   - Subdomain:  kitsunebi
-#   - Domain:     kitsuneden.net
-#   - Service:    HTTP    URL: localhost:8002
-
-# Optionally gate it: Zero Trust → Access → Applications → Add an
-# application for kitsunebi.kitsuneden.net with email policy = your address.
+ssh humanpatternlab@vps32678.dreamhostps.com '
+  mkdir -p ~/kitsunebi.kitsuneden.net/logs &&
+  cd ~ && git clone https://github.com/AdaInTheLab/kitsunebi.git kitsunebi.kitsuneden.net.tmp &&
+  mv kitsunebi.kitsuneden.net.tmp/.git kitsunebi.kitsuneden.net/ &&
+  cp -an kitsunebi.kitsuneden.net.tmp/. kitsunebi.kitsuneden.net/ &&
+  rm -rf kitsunebi.kitsuneden.net.tmp
+'
 ```
 
-In Cloudflare DNS for kitsuneden.net, point `kitsunebi` at the tunnel:
-- Currently: `CNAME kitsunebi → kitsunebi-c5f...vercel-dns-017.com`
-- Change to: `CNAME kitsunebi → <tunnel-id>.cfargotunnel.com` (orange cloud / proxied)
+**3. Cloudflare Tunnel + Public Hostname.** kitsunebi gets its own dashboard-managed tunnel (separate from lab-api's local-config one):
+
+- Cloudflare dashboard → Zero Trust → Networks → Tunnels → **Create a tunnel** (Cloudflared) → name it `kitsunebi-prod` (or anything). It hands you a `cloudflared tunnel run --token <…>` line — save the token; you'll feed it to PM2 in step 4.
+- In the same wizard, **Public Hostnames** → Add:
+  - Subdomain: `kitsunebi`
+  - Domain: `kitsuneden.net`
+  - Service: HTTP, URL: `localhost:8002`
+- This auto-creates/updates the DNS record (`kitsunebi.kitsuneden.net CNAME <tunnel-id>.cfargotunnel.com`, proxied).
+
+**4. Stash the tunnel token on the VPS** (mode 600, off git):
+
+```bash
+ssh humanpatternlab@vps32678.dreamhostps.com '
+  mkdir -p ~/.cloudflared &&
+  echo -n "<paste-the-token-here>" > ~/.cloudflared/kitsunebi-tunnel-token.txt &&
+  chmod 600 ~/.cloudflared/kitsunebi-tunnel-token.txt
+'
+```
+
+`ecosystem.config.cjs` reads from this path at PM2 start and feeds the token into the `cloudflared` args.
+
+**5. (Optional) Cloudflare Zero Trust gate.** Zero Trust → Access → Applications → add `kitsunebi.kitsuneden.net` with an email policy locked to your address.
 
 ### Per-deploy
 
@@ -87,19 +98,22 @@ tools/deploy.sh --dry-run       # preview the rsync, don't touch the server
 tools/deploy.sh --skip-build    # use existing dist/ as-is
 ```
 
-The script is idempotent. On first run, PM2 starts the process from `ecosystem-kitsunebi.cjs`; on subsequent runs, it reloads the existing one with no downtime.
+The script is idempotent. On first run, PM2 starts the process from `ecosystem.config.cjs` (which boots both `kitsunebi` and `cf-tunnel-kitsunebi`); on subsequent runs, it reloads the existing processes with no downtime.
+
+> **Filename note:** the file *must* be `ecosystem.config.cjs` (not e.g. `ecosystem-kitsunebi.cjs`). PM2 only auto-detects `*.config.{js,cjs}` as ecosystem configs and parses their `apps:` array. Anything else gets run as a plain Node script and silently no-ops.
 
 ### What lives where
 
-| Local                                  | On the VPS (`~/kitsunebi.kitsuneden.net/`) |
+| Local                       | On the VPS (`~/kitsunebi.kitsuneden.net/`)                    |
 |---|---|
-| `dist/`                                | `dist/` — Astro Node-adapter standalone bundle (self-contained) |
-| `cards/`                               | `cards/` — source of truth, mutated by API |
-| `public/`                              | `public/` — static assets including `attachments/` |
-| `ecosystem-kitsunebi.cjs`              | `ecosystem-kitsunebi.cjs` — PM2 config |
-| —                                      | `logs/kitsunebi.{out,err}.log` — PM2-managed |
+| `dist/`                     | `dist/` — Astro Node-adapter standalone bundle                |
+| `cards/`                    | `cards/` — source of truth, mutated by the API                |
+| `public/`                   | `public/` — static assets including live `attachments/`       |
+| `ecosystem.config.cjs`      | `ecosystem.config.cjs` — PM2 config (kitsunebi + tunnel)      |
+| —                           | `~/.cloudflared/kitsunebi-tunnel-token.txt` — tunnel token    |
+| —                           | `logs/{kitsunebi,cf-tunnel-kitsunebi}.{out,err}.log` — PM2    |
 
-The VPS keeps its own git checkout of this repo (under the project root) so the debounced `git-sync` can `commit && push` after every batch of API mutations. That way GitHub stays current as offsite backup + activity log; the canonical state lives on the VPS filesystem.
+The VPS's own git working copy under the project root is what the debounced `git-sync` layer pushes from — so GitHub stays current as audit log + offsite backup, but canonical state lives on the VPS filesystem.
 
 ## Roadmap
 

@@ -11,7 +11,7 @@
 #   - SSH key auth to humanpatternlab@vps32678.dreamhostps.com
 #   - ~/kitsunebi.kitsuneden.net/ exists on the VPS with logs/ subdir
 #   - cloudflared ingress rule: kitsunebi.kitsuneden.net → http://127.0.0.1:8002
-#   - PM2 already started this app once: `pm2 start ecosystem-kitsunebi.cjs`
+#   - PM2 already started this app once: `pm2 start ecosystem.config.cjs`
 #   See README.md "Deployment" for the full one-time setup walkthrough.
 #
 set -euo pipefail
@@ -52,7 +52,7 @@ echo "==> syncing to $SSH_HOST:$REMOTE_DIR"
 #   - dist/        (the Astro Node standalone bundle; self-contained)
 #   - cards/       (source of truth for card content; the API mutates these)
 #   - public/      (static assets including attachments/)
-#   - ecosystem-kitsunebi.cjs   (PM2 config)
+#   - ecosystem.config.cjs   (PM2 config)
 #
 # We do NOT rsync:
 #   - node_modules/   (Astro standalone bundles everything; not needed at runtime)
@@ -80,7 +80,7 @@ rsync -avz $DRY_RUN \
 
 rsync -avz $DRY_RUN \
   -e "ssh $SSH_KEY_FLAG" \
-  ecosystem-kitsunebi.cjs \
+  ecosystem.config.cjs \
   "$SSH_HOST:$REMOTE_DIR/"
 
 if [ -n "$DRY_RUN" ]; then
@@ -92,7 +92,7 @@ echo "==> reloading PM2 on $SSH_HOST"
 ssh $SSH_KEY_FLAG "$SSH_HOST" \
   "cd ~/kitsunebi.kitsuneden.net && \
    ~/.nvm/versions/node/v20.19.6/bin/pm2 reload kitsunebi || \
-   ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem-kitsunebi.cjs"
+   ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem.config.cjs"
 
 echo "==> verifying"
 ssh $SSH_KEY_FLAG "$SSH_HOST" \
