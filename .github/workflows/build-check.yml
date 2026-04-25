@@ -1,0 +1,36 @@
+# Cheap PR safety net: build kitsunebi and surface any issues before merge.
+#
+# Catches:
+#   - typecheck regressions in src/
+#   - the silent-card-drop assertion in src/pages/index.astro (fires when a
+#     cards/*.md fails frontmatter schema validation — a class of bug that
+#     used to ship to prod undetected)
+#   - broken imports
+#   - Astro / dependency version drift
+#
+# Doesn't try to run integration tests against the API — that needs a full
+# server, real card writes, etc., and isn't worth the complexity for the
+# kinds of bugs that escape this build check.
+
+name: Build check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build
+        run: npm run build
