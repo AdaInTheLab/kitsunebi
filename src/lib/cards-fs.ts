@@ -35,6 +35,13 @@ export interface CardFrontmatter {
   completed?: string | null;
   tags?: string[];
   blocked_by?: string[];
+  /**
+   * Floating-point sort key for intra-column position. Cards without one
+   * fall back to sorting by `-created` (newer-first). See the interleaved
+   * sort in src/pages/index.astro and the drop-position math in the
+   * board's drag-drop client script.
+   */
+  order?: number | null;
 }
 
 export interface ParsedCard {
@@ -103,16 +110,26 @@ export function applyFrontmatterPatch(raw: string, patch: CardPatch): string {
 
   const remainingPatch = new Map<string, unknown>(Object.entries(patch));
 
+  // CRLF compatibility: when the file uses Windows line endings, splitting on
+  // `\n` leaves a `\r` glued to the end of each element. JavaScript regex
+  // treats `\r` as a line terminator that `.` won't match and `$` won't see
+  // past, so a naive `(.*)$` quietly fails to match every CRLF line. We
+  // strip the trailing `\r` for matching, then re-attach it when writing
+  // the replacement so the file's existing line endings are preserved.
+  const KEY_LINE_RE = /^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$/;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const m = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*):\s*(.*)$/);
+    const hasCR = line.endsWith('\r');
+    const stripped = hasCR ? line.slice(0, -1) : line;
+    const m = stripped.match(KEY_LINE_RE);
     if (!m) continue;
     const key = m[1];
     if (!remainingPatch.has(key)) continue;
 
     const value = remainingPatch.get(key);
     remainingPatch.delete(key);
-    lines[i] = `${key}: ${formatYamlValue(value)}`;
+    lines[i] = `${key}: ${formatYamlValue(value)}${hasCR ? '\r' : ''}`;
   }
 
   // Any keys in the patch not yet in the frontmatter get appended at the end.
@@ -120,9 +137,13 @@ export function applyFrontmatterPatch(raw: string, patch: CardPatch): string {
   // the closing `---`, so we insert before that empty trailing line.)
   if (remainingPatch.size > 0) {
     const insertAt = lines.length > 0 && lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
+    // Match the file's existing line-ending convention. We sample the line
+    // *before* the insert point — if it ends with `\r`, the file is CRLF.
+    const sampleLine = insertAt > 0 ? lines[insertAt - 1] : '';
+    const eol = sampleLine.endsWith('\r') ? '\r' : '';
     const additions: string[] = [];
     for (const [key, value] of remainingPatch) {
-      additions.push(`${key}: ${formatYamlValue(value)}`);
+      additions.push(`${key}: ${formatYamlValue(value)}${eol}`);
     }
     lines.splice(insertAt, 0, ...additions);
   }
@@ -162,6 +183,11 @@ function formatYamlScalar(value: unknown): string {
   if (value === null || value === undefined) return 'null';
   if (typeof value === 'boolean' || typeof value === 'number') return String(value);
   const str = String(value);
+  // ISO YYYY-MM-DD dates are the existing card convention — emit them
+  // unquoted to preserve clean git diffs. YAML auto-parses them to a
+  // Date object, and our `dateish` schema transform normalizes them back
+  // to a string downstream, so the round trip is lossless either way.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   // Quote if the string contains YAML-meaningful chars or could be confused with a number/bool.
   if (
     str === '' ||

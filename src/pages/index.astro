@@ -25,12 +25,22 @@ if (missing.length > 0) {
   );
 }
 
-// Sort: newer `created` dates first within a column; overdue/urgent float up within in-progress
+// Sort: explicit `order:` wins (ascending); cards without one fall back to
+// newer-`created`-first. Mixed columns interleave correctly because we compute
+// each card's "effective order" as either its explicit order or `-createdMs`,
+// and sort by that. Same comparator runs server-rendered and client-side
+// (the drag-drop logic uses the matching helper from src/lib/sort-cards.ts).
 const sorted = allCards.slice().sort((a, b) => {
-  const ca = a.data.created || '';
-  const cb = b.data.created || '';
-  return cb.localeCompare(ca);
+  return effectiveOrder(a) - effectiveOrder(b);
 });
+
+function effectiveOrder(card: (typeof allCards)[number]): number {
+  if (typeof card.data.order === 'number') return card.data.order;
+  // Fallback: newer cards float to the top. We negate the timestamp so the
+  // sort stays "ascending = top of column", matching explicit-order semantics.
+  const created = card.data.created ? Date.parse(card.data.created) : 0;
+  return -created;
+}
 
 const columns = [
   { status: 'backlog' as const, label: 'Backlog' },
@@ -188,14 +198,16 @@ const allPeople = [...peopleSet].sort();
         applyFilters();
       });
 
-      // ---------- Drag-and-drop between status columns ----------
+      // ---------- Drag-and-drop with status moves AND intra-column sort ----------
       // Cards have `draggable="true"`. Each column body has `data-column="<status>"`.
-      // On drop:
-      //   1. Optimistically move the DOM node and update visible counts.
-      //   2. POST /api/cards/:id/move.
-      //   3. On error, snap the card back and surface a banner.
+      // On dragover we figure out the *insertion point* — between which two
+      // sibling cards the drop would land — and on drop we compute a new
+      // floating-point `order` as the midpoint of those neighbors' "effective
+      // orders" (explicit `data-order` if set, else `-Date.parse(data-created)`
+      // so newer-first stays the default for unordered cards).
       //
-      // No frameworks; HTML5 drag/drop fires plenty of events for this.
+      // Result: a single API call per drop ({status, order}), one card-file
+      // write on the server, one git-sync commit. No batch renumbering.
 
       let draggingCardId: string | null = null;
       let draggingFromStatus: string | null = null;
@@ -214,14 +226,56 @@ const allPeople = [...peopleSet].sort();
       document.addEventListener('dragend', () => {
         document.querySelectorAll<HTMLElement>('.card.is-dragging').forEach((c) => c.classList.remove('is-dragging'));
         document.querySelectorAll<HTMLElement>('[data-column].drop-target').forEach((c) => c.classList.remove('drop-target'));
+        clearDropIndicator();
         draggingCardId = null;
         draggingFromStatus = null;
       });
 
-      // Allow drop targets only when something kitsunebi-shaped is being dragged.
       function targetColumn(target: EventTarget | null): HTMLElement | null {
         if (!(target instanceof HTMLElement)) return null;
         return target.closest<HTMLElement>('[data-column]');
+      }
+
+      /** Effective order for sort comparisons. Mirrors index.astro's server-side sort. */
+      function effectiveOrder(card: HTMLElement): number {
+        const raw = card.dataset.order;
+        if (raw && raw.trim() !== '') {
+          const n = Number(raw);
+          if (Number.isFinite(n)) return n;
+        }
+        const created = card.dataset.created ? Date.parse(card.dataset.created) : 0;
+        return -created;
+      }
+
+      /**
+       * Where, in this column, would a drop at this Y coordinate land?
+       * Returns `null` for "after the last card" (and an empty column).
+       */
+      function findDropAfter(col: HTMLElement, clientY: number): HTMLElement | null {
+        const cards = [...col.querySelectorAll<HTMLElement>('.card:not(.is-dragging)')];
+        // Walk top to bottom; the first card whose vertical midpoint is
+        // *below* the cursor is the one we'd land before.
+        for (const c of cards) {
+          const rect = c.getBoundingClientRect();
+          if (clientY < rect.top + rect.height / 2) return c;
+        }
+        return null; // dropped past the last card → append
+      }
+
+      /** A thin orange line between cards showing where the drop will land. */
+      let dropIndicator: HTMLElement | null = null;
+      function showDropIndicator(col: HTMLElement, before: HTMLElement | null) {
+        clearDropIndicator();
+        const body = col.querySelector<HTMLElement>('.column-body');
+        if (!body) return;
+        dropIndicator = document.createElement('div');
+        dropIndicator.className = 'drop-indicator';
+        if (before) body.insertBefore(dropIndicator, before);
+        else body.appendChild(dropIndicator);
+      }
+      function clearDropIndicator() {
+        dropIndicator?.remove();
+        dropIndicator = null;
       }
 
       document.addEventListener('dragover', (e) => {
@@ -231,6 +285,10 @@ const allPeople = [...peopleSet].sort();
         e.preventDefault();
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
         col.classList.add('drop-target');
+        // Compute and render the would-be drop position so the user can see
+        // exactly where the card will land before they release.
+        const before = findDropAfter(col, e.clientY);
+        showDropIndicator(col, before);
       });
 
       document.addEventListener('dragleave', (e) => {
@@ -241,6 +299,7 @@ const allPeople = [...peopleSet].sort();
         const into = (e as DragEvent).relatedTarget as Node | null;
         if (into && col.contains(into)) return;
         col.classList.remove('drop-target');
+        clearDropIndicator();
       });
 
       document.addEventListener('drop', async (e) => {
@@ -251,48 +310,105 @@ const allPeople = [...peopleSet].sort();
         col.classList.remove('drop-target');
 
         const newStatus = col.dataset.column;
-        if (!newStatus || newStatus === draggingFromStatus) return;
+        if (!newStatus) {
+          clearDropIndicator();
+          return;
+        }
 
         const cardEl = document.querySelector<HTMLElement>(`.card[data-card-id="${CSS.escape(draggingCardId)}"]`);
-        if (!cardEl) return;
+        if (!cardEl) {
+          clearDropIndicator();
+          return;
+        }
 
-        const sourceCol = document.querySelector<HTMLElement>(`[data-column="${CSS.escape(draggingFromStatus ?? '')}"]`);
+        const sourceCol = document.querySelector<HTMLElement>(
+          `[data-column="${CSS.escape(draggingFromStatus ?? '')}"]`
+        );
         const targetBody = col.querySelector<HTMLElement>('.column-body');
-        if (!targetBody) return;
+        if (!targetBody) {
+          clearDropIndicator();
+          return;
+        }
 
-        // Optimistic move.
+        // Where in the target column does this drop land?
+        const before = findDropAfter(col, (e as DragEvent).clientY);
+
+        // Don't write if it's a no-op: same column AND no actual position
+        // change (target slot's neighbors are exactly this card already).
+        const isSameColumn = newStatus === draggingFromStatus;
+        if (isSameColumn) {
+          const cards = [...targetBody.querySelectorAll<HTMLElement>('.card')];
+          const idx = cards.indexOf(cardEl);
+          const beforeIdx = before ? cards.indexOf(before) : cards.length;
+          if (beforeIdx === idx || beforeIdx === idx + 1) {
+            clearDropIndicator();
+            return;
+          }
+        }
+
+        // Optimistic DOM move (status class swap + reposition).
         const cardId = draggingCardId;
         const originalStatusClass = `status-${draggingFromStatus}`;
         const newStatusClass = `status-${newStatus}`;
+        const originalNextSibling = cardEl.nextSibling; // for snap-back
+        const originalParent = cardEl.parentElement;
+        const originalDataOrder = cardEl.dataset.order ?? '';
+
         cardEl.classList.remove(originalStatusClass);
         cardEl.classList.add(newStatusClass);
         cardEl.dataset.status = newStatus;
-        // Drop the empty-state placeholder if present in the target.
+
         const emptyPlaceholder = targetBody.querySelector('.empty');
         if (emptyPlaceholder) emptyPlaceholder.remove();
-        targetBody.appendChild(cardEl);
+        if (before) targetBody.insertBefore(cardEl, before);
+        else targetBody.appendChild(cardEl);
+
+        clearDropIndicator();
         updateColumnCount(sourceCol);
         updateColumnCount(col);
         cardEl.classList.add('drop-success');
         setTimeout(() => cardEl.classList.remove('drop-success'), 700);
 
+        // Compute the new `order` as the midpoint of the cards now immediately
+        // above and below the dragged card in the target column. We look at
+        // the post-move DOM, EXCLUDING the dragged card itself.
+        const siblings = [...targetBody.querySelectorAll<HTMLElement>('.card')].filter((c) => c !== cardEl);
+        const cardEls = [...targetBody.querySelectorAll<HTMLElement>('.card')];
+        const myIdx = cardEls.indexOf(cardEl);
+        const above = myIdx > 0 ? cardEls[myIdx - 1] : null;
+        const below = myIdx < cardEls.length - 1 ? cardEls[myIdx + 1] : null;
+        // (siblings is the same set as above/below context; kept for readability)
+        void siblings;
+
+        let newOrder: number;
+        if (above && below) {
+          newOrder = (effectiveOrder(above) + effectiveOrder(below)) / 2;
+        } else if (above) {
+          newOrder = effectiveOrder(above) + 1;
+        } else if (below) {
+          newOrder = effectiveOrder(below) - 1;
+        } else {
+          newOrder = 0;
+        }
+
+        cardEl.dataset.order = String(newOrder);
+
         try {
           const r = await fetch(`/api/cards/${encodeURIComponent(cardId)}/move`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: newStatus }),
+            body: JSON.stringify({ status: newStatus, order: newOrder }),
           });
           if (!r.ok) throw new Error(`HTTP ${r.status}`);
         } catch (err) {
-          // Snap back. Best-effort: put it where it came from; if the original
-          // column collapsed in the meantime, leave it where it is and tell the user.
           console.error('move failed:', err);
+          // Snap back: status class, dataset, position, order.
           cardEl.classList.remove(newStatusClass);
           cardEl.classList.add(originalStatusClass);
           cardEl.dataset.status = draggingFromStatus ?? '';
-          if (sourceCol) {
-            const sourceBody = sourceCol.querySelector<HTMLElement>('.column-body');
-            if (sourceBody) sourceBody.appendChild(cardEl);
+          cardEl.dataset.order = originalDataOrder;
+          if (originalParent) {
+            originalParent.insertBefore(cardEl, originalNextSibling);
             updateColumnCount(sourceCol);
             updateColumnCount(col);
           }
@@ -599,6 +715,28 @@ const allPeople = [...peopleSet].sort();
     box-shadow: inset 0 0 0 1px var(--flame-in_progress-glow), inset 0 0 32px -8px var(--flame-in_progress-glow);
     border-radius: 6px;
     transition: background 120ms ease, box-shadow 120ms ease;
+  }
+
+  /* The thin orange line that previews where a drop will land between two
+     cards. Inserted into the column body during dragover, removed on
+     dragend / drop. */
+  :global(.drop-indicator) {
+    height: 2px;
+    margin: 4px 0;
+    border-radius: 1px;
+    background: var(--flame-in_progress);
+    box-shadow: 0 0 6px var(--flame-in_progress-glow), 0 0 14px -2px var(--flame-in_progress-glow);
+    pointer-events: none;
+    animation: indicatorPulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes indicatorPulse {
+    0%, 100% { opacity: 0.7; }
+    50%      { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.drop-indicator) { animation: none; opacity: 0.85; }
   }
 
   /* Brief pulse confirming a successful drop. */
