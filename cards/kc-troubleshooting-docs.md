@@ -6,7 +6,6 @@ owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
-completed: null
 tags: [kitsunecommand, docs]
 blocked_by: []
 ---

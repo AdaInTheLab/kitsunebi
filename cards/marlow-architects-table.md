@@ -1,7 +1,7 @@
 ---
 id: marlow-architects-table
 title: Marlow / Architect's Table collab — still live?
-status: in-progress
+status: in_progress
 owner: koda
 collaborators: [marlow, ada]
 due: null

@@ -1,10 +1,29 @@
 ---
 import { getCollection } from 'astro:content';
+import { readdirSync } from 'node:fs';
 import Layout from '../layouts/Layout.astro';
 import Column from '../components/Column.astro';
 import Flame from '../components/Flame.astro';
 
 const allCards = await getCollection('cards');
+
+// Sanity check: Astro silently drops cards/*.md files that fail schema
+// validation, with no build warning. (Cost us a day where kc-troubleshooting-docs
+// vanished from the live board because of `completed: null`.) Compare the
+// loaded collection against the on-disk file list and fail the build with a
+// useful message if any are missing.
+const onDisk = readdirSync('./cards').filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, ''));
+const loadedIds = new Set(allCards.map((c) => c.id));
+const missing = onDisk.filter((id) => !loadedIds.has(id));
+if (missing.length > 0) {
+  throw new Error(
+    `kitsunebi build: ${missing.length} card(s) failed schema validation and were silently dropped:\n` +
+    missing.map((m) => `  - cards/${m}.md`).join('\n') +
+    `\n\nCheck frontmatter against src/content.config.ts. Common gotchas:\n` +
+    `  - status must be one of: backlog | in_progress | blocked | done | archived (note underscore)\n` +
+    `  - dates must be YYYY-MM-DD or omitted; use 'completed: null' only on fields that allow null`
+  );
+}
 
 // Sort: newer `created` dates first within a column; overdue/urgent float up within in-progress
 const sorted = allCards.slice().sort((a, b) => {
