@@ -1,15 +1,22 @@
 /**
  * POST /api/cards/:id/move
  *
- * Body: { status: CardStatus, completed?: string | null }
+ * Body: { status: CardStatus, completed?: string | null, order?: number | null }
  *
- * Used by the board's drag-and-drop. Sets the card's `status:` to the new
- * column and, if moving into `done`, fills in `completed:` with today's
- * date if it isn't already set. Conversely, moving *out* of done clears
- * `completed:` (it stops being meaningful).
+ * Used by the board's drag-and-drop:
  *
- * Triggers a debounced git-sync so the change ends up on GitHub as audit
- * log, but the response doesn't wait for it.
+ *   - `status` sets which column the card lives in. Inter-column moves
+ *     also auto-fill (or clear) `completed:` based on whether you're
+ *     entering/leaving the `done` column.
+ *
+ *   - `order` is an optional floating-point sort key for intra-column
+ *     position. The client computes it as the midpoint of the dragged
+ *     card's new neighbors' effective orders. Same endpoint handles both
+ *     "move to other column" and "move within column" — usually you do
+ *     both at once on a drop, in one round trip.
+ *
+ * Triggers a debounced git-sync so the change ends up on GitHub as
+ * audit log, but the response doesn't wait for it.
  */
 
 import type { APIRoute } from 'astro';
@@ -29,6 +36,8 @@ interface MoveBody {
   status: CardStatus;
   /** Optional override; defaults to today's YYYY-MM-DD when status === 'done'. */
   completed?: string | null;
+  /** Optional float; explicit intra-column position. */
+  order?: number | null;
 }
 
 export const prerender = false;
@@ -47,6 +56,10 @@ export const POST: APIRoute = async (ctx) => {
 
   if (!VALID_STATUSES.has(body.status)) {
     return jsonError(400, 'invalid_status', `status must be one of: ${[...VALID_STATUSES].join(', ')}`);
+  }
+
+  if (body.order !== undefined && body.order !== null && !Number.isFinite(body.order)) {
+    return jsonError(400, 'invalid_order', 'order must be a finite number, null, or omitted.');
   }
 
   let current;
@@ -80,20 +93,48 @@ export const POST: APIRoute = async (ctx) => {
     }
   }
 
+  // Apply the optional intra-column position.
+  if (body.order !== undefined) {
+    patch.order = body.order;
+  }
+
   try {
     await patchCardFrontmatter(id, patch);
   } catch (err: any) {
     return jsonError(500, 'write_failed', err?.message ?? 'Failed to write card.');
   }
 
-  scheduleGitSync(`move ${id} → ${body.status}`);
+  // Commit message reflects what changed: status alone, order alone, or both.
+  const statusChanged = body.status !== current.frontmatter.status;
+  const orderChanged = body.order !== undefined && body.order !== current.frontmatter.order;
+  let summary: string;
+  if (statusChanged && orderChanged) summary = `move ${id} → ${body.status} (#${body.order})`;
+  else if (statusChanged)             summary = `move ${id} → ${body.status}`;
+  else if (orderChanged)              summary = `reorder ${id} (#${body.order})`;
+  else                                summary = `touch ${id}`;
+  scheduleGitSync(summary);
+
+  // Build the response from the *patched* state. `current.frontmatter` has
+  // dates as Date objects (gray-matter auto-parses unquoted YYYY-MM-DD), so
+  // we'd return ISO timestamps if we fell back to it. Normalize to YYYY-MM-DD.
+  const finalCompleted =
+    patch.completed !== undefined
+      ? patch.completed
+      : isoDateString(current.frontmatter.completed);
 
   return json(200, {
     id,
     status: body.status,
-    completed: patch.completed ?? current.frontmatter.completed ?? null,
+    completed: finalCompleted,
+    order: body.order !== undefined ? body.order : current.frontmatter.order ?? null,
   });
 };
+
+function isoDateString(d: unknown): string | null {
+  if (d == null) return null;
+  if (d instanceof Date) return d.toISOString().split('T')[0];
+  return String(d);
+}
 
 function todayIsoDate(): string {
   return new Date().toISOString().split('T')[0];

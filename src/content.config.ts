@@ -24,6 +24,12 @@ const cards = defineCollection({
     completed: dateish.nullable().optional(),
     tags: z.array(z.string()).default([]),
     blocked_by: z.array(z.string()).default([]),
+    // Optional floating-point sort key for intra-column position. When the
+    // user drags a card to a specific spot in a column, we set its `order:`
+    // to the midpoint of its new neighbors. Cards without an explicit order
+    // sort by `-created` (newer first) — same behavior as before this field
+    // existed. See src/pages/index.astro for the interleaved sort.
+    order: z.number().nullable().optional(),
   }),
 });
 
