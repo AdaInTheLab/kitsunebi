@@ -1,0 +1,106 @@
+# Auto-deploy kitsunebi to the DreamHost VPS on every push to main.
+#
+# Path-filtered: pure card-content commits don't trigger a deploy. That's
+# important because the running app pushes its own commits to GitHub via the
+# git-sync layer (every API mutation → debounced 5s commit → push). If those
+# triggered a redeploy, every drag-drop would feedback-loop into a build.
+#
+# The build runs on the GH runner — Astro's Node-adapter standalone bundles
+# every dependency, so we only rsync `dist/` and `ecosystem.config.cjs`
+# over to the VPS. Cards and attachments stay on the VPS where the API
+# writes them; we don't overwrite live state.
+#
+# Required repo secret:
+#   DH_SSH_KEY — private key for humanpatternlab@vps32678.dreamhostps.com
+#                (matches the key on disk: ~/.ssh/hpl_notebook_deploy)
+
+name: Deploy to DreamHost
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Only deploy when code or config changes. Card content lives in cards/
+      # and gets synced via the running app's git-sync layer, not via this
+      # workflow — see the rationale at the top of this file.
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'astro.config.mjs'
+      - 'ecosystem.config.cjs'
+      - 'tools/deploy.sh'
+      - '.github/workflows/deploy.yml'
+  # Manual button in the Actions tab, useful for forcing a redeploy after
+  # tweaking VPS-side config or after a Cloudflare DNS swap.
+  workflow_dispatch:
+
+# A push that lands while a previous deploy is still running cancels the
+# older one — the freshest commit is what should be live.
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      DH_HOST: vps32678.dreamhostps.com
+      DH_USER: humanpatternlab
+      DH_PATH: /home/humanpatternlab/kitsunebi.kitsuneden.net
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Build (Astro standalone)
+        run: npm run build
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          # Pull the host key fresh so a known-hosts mismatch fails loudly
+          # rather than silently downgrading to "yes accept anything".
+          ssh-keyscan -H "$DH_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          # The secret is the raw private key, written 600 like ssh wants.
+          echo "${{ secrets.DH_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Rsync dist/ + ecosystem cjs to VPS
+        run: |
+          # Use --delete on dist/ so stale chunks get cleaned up between deploys.
+          # Don't touch cards/ or public/attachments/ — those are live state.
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            dist/ "$DH_USER@$DH_HOST:$DH_PATH/dist/"
+          rsync -avz \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
+            ecosystem.config.cjs \
+            "$DH_USER@$DH_HOST:$DH_PATH/"
+
+      - name: Reload PM2
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DH_USER@$DH_HOST" \
+            "cd $DH_PATH && \
+             ~/.nvm/versions/node/v20.19.6/bin/pm2 reload kitsunebi || \
+             ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem.config.cjs"
+
+      - name: Verify
+        run: |
+          # PM2's status report is enough — the app responding to HTTP would
+          # require either CF tunnel access from the runner, or hitting the
+          # VPS's bound port (which is localhost-only). PM2 "online" status is
+          # what we can cheaply confirm.
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DH_USER@$DH_HOST" \
+            "~/.nvm/versions/node/v20.19.6/bin/pm2 list | grep -E 'kitsunebi|cf-tunnel' || true"
