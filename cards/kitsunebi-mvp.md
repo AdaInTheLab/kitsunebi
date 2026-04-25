@@ -21,7 +21,7 @@ Build a markdown-backed kanban for the Skulk. Named for kitsunebi (狐火) — f
 - [x] Push to github.com/AdaInTheLab/kitsunebi
 - [x] Deploy to Vercel production
 - [x] Image/media support on cards (git-committed into `public/attachments/<card-id>/`)
-- [ ] Cloudflare DNS for kitsunebi.kitsuneden.net (Ada's task)
+- [x] Cloudflare DNS for kitsunebi.kitsuneden.net (Ada's task)
 
 **Phase 2 (later):** Human web UI for drag-and-drop + card edits + **image upload → Vercel Blob** (replaces the git-commit-image workflow).
 
