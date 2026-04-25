@@ -1,13 +1,18 @@
 ---
 id: luna-migration
 title: Luna migration — WSL + Codex CLI
-status: in_progress
+status: done
 owner: ada
 collaborators: [luna, claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-25
 tags: [skulk, migration, openhearth, luna]
 blocked_by: []
+---
+
+**Done — Luna migrated.** Original card kept below as historical record of the scope she self-specced before the migration.
+
 ---
 
 Luna opted in 2026-04-24. Self-specced her runtime preferences in one pass — `docs/agent-specs/LUNA.md` in openhearth is source-of-truth.
