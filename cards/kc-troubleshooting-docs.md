@@ -1,13 +1,18 @@
 ---
 id: kc-troubleshooting-docs
 title: Add a "Troubleshooting" section to the KC docs
-status: in_progress
+status: done
 owner: ada
 collaborators: [claude]
 due: null
 created: 2026-04-24
+completed: 2026-04-25
 tags: [kitsunecommand, docs]
 blocked_by: []
+---
+
+**Resolved across two PRs.** Both surfaces shipped: the KC repo got `docs/troubleshooting.md` with README links (KC [#39](https://github.com/Kitsune-Den/KitsuneCommand/pull/39)) for "operator looks at the README on GitHub," and the docs site got `troubleshooting/index.mdx` at [kitsunecommand.kitsuneden.net/docs/troubleshooting/](https://kitsunecommand.kitsuneden.net/docs/troubleshooting/) (KCDocs [#1](https://github.com/Kitsune-Den/KitsuneCommandDocs/pull/1)) for "operator googles the symptom and lands on the docs site." Same 7 entries seeded, same shape, both linked from their site's intro/landing for discoverability. The Docusaurus version uses native admonitions (`:::caution`, `:::tip`, `:::note`) for the sharp edges. Both close with an "Adding an entry" section so the pattern keeps growing alongside the bug fixes.
+
 ---
 
 Stand up a proper "Troubleshooting" section in the KC docs (likely
