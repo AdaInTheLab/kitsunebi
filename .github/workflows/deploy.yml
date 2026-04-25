@@ -6,7 +6,7 @@
 # triggered a redeploy, every drag-drop would feedback-loop into a build.
 #
 # The build runs on the GH runner — Astro's Node-adapter standalone bundles
-# every dependency, so we only rsync `dist/` and `ecosystem-kitsunebi.cjs`
+# every dependency, so we only rsync `dist/` and `ecosystem.config.cjs`
 # over to the VPS. Cards and attachments stay on the VPS where the API
 # writes them; we don't overwrite live state.
 #
@@ -27,7 +27,7 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - 'astro.config.mjs'
-      - 'ecosystem-kitsunebi.cjs'
+      - 'ecosystem.config.cjs'
       - 'tools/deploy.sh'
       - '.github/workflows/deploy.yml'
   # Manual button in the Actions tab, useful for forcing a redeploy after
@@ -84,7 +84,7 @@ jobs:
             dist/ "$DH_USER@$DH_HOST:$DH_PATH/dist/"
           rsync -avz \
             -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
-            ecosystem-kitsunebi.cjs \
+            ecosystem.config.cjs \
             "$DH_USER@$DH_HOST:$DH_PATH/"
 
       - name: Reload PM2
@@ -93,7 +93,7 @@ jobs:
             "$DH_USER@$DH_HOST" \
             "cd $DH_PATH && \
              ~/.nvm/versions/node/v20.19.6/bin/pm2 reload kitsunebi || \
-             ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem-kitsunebi.cjs"
+             ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem.config.cjs"
 
       - name: Verify
         run: |
