@@ -44,7 +44,12 @@ const fmt = (d: Date | null) =>
           <Flame size={18} class="detail-flame" />
           <span class="status-label">{statusLabels[data.status]}</span>
         </div>
-        <h1>{data.title}</h1>
+        <h1
+          class="title-edit"
+          data-card-id={data.id}
+          tabindex="0"
+          title="Click to edit"
+        >{data.title}</h1>
 
         <dl class="meta-grid">
           <div class="meta-item">
@@ -158,6 +163,101 @@ const fmt = (d: Date | null) =>
       }
     });
   </script>
+
+  <script>
+    // Click-to-edit title on the card detail page. PATCHes /api/cards/:id
+    // with { title } and on success updates the DOM + document.title.
+    // Enter commits, Escape cancels. Multi-line input is collapsed to one line.
+    const titleEl = document.querySelector<HTMLElement>('h1.title-edit');
+    if (titleEl) {
+      const cardId = titleEl.dataset.cardId ?? '';
+      let original = (titleEl.textContent ?? '').trim();
+
+      const enterEdit = () => {
+        if (titleEl.isContentEditable) return;
+        original = (titleEl.textContent ?? '').trim();
+        titleEl.contentEditable = 'true';
+        titleEl.classList.add('editing');
+        titleEl.focus();
+        const range = document.createRange();
+        range.selectNodeContents(titleEl);
+        const sel = window.getSelection();
+        sel?.removeAllRanges();
+        sel?.addRange(range);
+      };
+
+      titleEl.addEventListener('click', enterEdit);
+      titleEl.addEventListener('keydown', (e) => {
+        if (!titleEl.isContentEditable) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            enterEdit();
+          }
+          return;
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          titleEl.blur();
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          titleEl.textContent = original;
+          titleEl.blur();
+        }
+      });
+
+      // Strip rich content from pastes — title is a plain string.
+      titleEl.addEventListener('paste', (e) => {
+        if (!titleEl.isContentEditable) return;
+        e.preventDefault();
+        const text = (e.clipboardData?.getData('text') ?? '').replace(/[\r\n\t]+/g, ' ');
+        const sel = window.getSelection();
+        if (!sel || sel.rangeCount === 0) return;
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        const node = document.createTextNode(text);
+        range.insertNode(node);
+        range.setStartAfter(node);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      });
+
+      titleEl.addEventListener('blur', async () => {
+        if (!titleEl.isContentEditable) return;
+        titleEl.contentEditable = 'false';
+        titleEl.classList.remove('editing');
+
+        const newTitle = (titleEl.textContent ?? '').replace(/\s+/g, ' ').trim();
+        if (newTitle === original) return;
+        if (!newTitle) {
+          titleEl.textContent = original;
+          return;
+        }
+
+        titleEl.classList.add('saving');
+        try {
+          const r = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: newTitle }),
+          });
+          if (!r.ok) {
+            const errBody = await r.text();
+            throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+          }
+          titleEl.textContent = newTitle;
+          original = newTitle;
+          document.title = document.title.replace(/^.*?( — kitsunebi)$/, `${newTitle}$1`);
+        } catch (err) {
+          console.error('title patch failed:', err);
+          titleEl.textContent = original;
+          alert(`Couldn't save title: ${err instanceof Error ? err.message : 'unknown error'}`);
+        } finally {
+          titleEl.classList.remove('saving');
+        }
+      });
+    }
+  </script>
 </Layout>
 
 <style>
@@ -231,6 +331,34 @@ const fmt = (d: Date | null) =>
     margin: 0 0 1.2rem 0;
     line-height: 1.1;
     letter-spacing: 0.005em;
+  }
+
+  .title-edit {
+    cursor: text;
+    border-radius: 6px;
+    padding: 0.05em 0.25em;
+    margin-left: -0.25em;
+    transition: background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
+    outline: none;
+  }
+
+  .title-edit:hover:not(.editing) {
+    background: var(--bg-card-hover);
+    box-shadow: 0 0 0 1px var(--border);
+  }
+
+  .title-edit:focus-visible:not(.editing) {
+    box-shadow: 0 0 0 1px var(--flame);
+  }
+
+  .title-edit.editing {
+    background: var(--bg-0);
+    box-shadow: 0 0 0 1px var(--flame), 0 0 18px -6px var(--flame-glow);
+  }
+
+  .title-edit.saving {
+    opacity: 0.55;
+    pointer-events: none;
   }
 
   .meta-grid {
