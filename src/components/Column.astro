@@ -7,9 +7,11 @@ interface Props {
   status: 'backlog' | 'in_progress' | 'blocked' | 'done' | 'archived';
   label: string;
   cards: CollectionEntry<'cards'>[];
+  /** Map of card id → comment count. Cards not in the map render with no badge. */
+  commentCounts?: Map<string, number>;
 }
 
-const { status, label, cards } = Astro.props;
+const { status, label, cards, commentCounts } = Astro.props;
 ---
 
 <section class={`column status-${status}`} data-column={status}>
@@ -26,7 +28,7 @@ const { status, label, cards } = Astro.props;
     {cards.length === 0 ? (
       <div class="empty">— quiet —</div>
     ) : (
-      cards.map((card, i) => <Card card={card} index={i} />)
+      cards.map((card, i) => <Card card={card} index={i} commentCount={commentCounts?.get(card.id) ?? 0} />)
     )}
   </div>
 </section>

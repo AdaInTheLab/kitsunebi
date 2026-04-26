@@ -5,9 +5,11 @@ import { render } from 'astro:content';
 interface Props {
   card: CollectionEntry<'cards'>;
   index?: number;
+  /** Number of comments on this card. Surfaced as a small chip in the footer when > 0. */
+  commentCount?: number;
 }
 
-const { card, index = 0 } = Astro.props;
+const { card, index = 0, commentCount = 0 } = Astro.props;
 const { Content } = await render(card);
 const data = card.data;
 
@@ -73,6 +75,11 @@ const dueClass = daysUntilDue === null
       </span>
     ))}
     <button class="card-tag-add" type="button" aria-label="Add a tag">+ tag</button>
+    {commentCount > 0 && (
+      <a href={`/cards/${data.id}/#comments`} class="card-comments-count" aria-label={`${commentCount} comment${commentCount === 1 ? '' : 's'}`} title={`${commentCount} comment${commentCount === 1 ? '' : 's'}`}>
+        💬 {commentCount}
+      </a>
+    )}
   </footer>
 </article>
 
@@ -512,6 +519,29 @@ const dueClass = daysUntilDue === null
   .card-tag-add:focus-visible {
     border-color: var(--flame);
     color: var(--flame);
+    background: var(--flame-glow);
+    outline: none;
+  }
+
+  /* Comment-count badge: subtle when the card has any thread, anchored to
+     the right side of the footer so it sits opposite the tags. */
+  .card-comments-count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--text-soft);
+    text-decoration: none;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0 0.45rem;
+    line-height: 1.5;
+    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+  }
+
+  .card-comments-count:hover,
+  .card-comments-count:focus-visible {
+    color: var(--flame);
+    border-color: var(--flame);
     background: var(--flame-glow);
     outline: none;
   }

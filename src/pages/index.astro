@@ -5,6 +5,7 @@ import Layout from '../layouts/Layout.astro';
 import Column from '../components/Column.astro';
 import Flame from '../components/Flame.astro';
 import { maybeSweepArchived } from '../lib/archive-sweep';
+import { countComments } from '../lib/comments-fs';
 
 // Auto-archive sweep — debounced 1h via stamp file, no-op on most page loads.
 // Runs before getCollection so any cards moved to `archived` reflect immediately.
@@ -80,6 +81,12 @@ for (const c of sorted) {
   for (const p of c.data.collaborators) peopleSet.add(p);
 }
 const allPeople = [...peopleSet].sort();
+
+// Comment counts per card. One filesystem read per card; cheap relative
+// to the rest of SSR with a few dozen cards on the board.
+const commentCounts = new Map<string, number>(
+  await Promise.all(sorted.map(async (c) => [c.id, await countComments(c.id)] as [string, number])),
+);
 ---
 
 <Layout title="kitsunebi — the Skulk's board">
@@ -139,7 +146,7 @@ const allPeople = [...peopleSet].sort();
 
     <div class="board">
       {columns.map((c) => (
-        <Column status={c.status} label={c.label} cards={cardsByStatus[c.status]} />
+        <Column status={c.status} label={c.label} cards={cardsByStatus[c.status]} commentCounts={commentCounts} />
       ))}
     </div>
 
