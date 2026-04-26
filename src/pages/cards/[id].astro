@@ -119,7 +119,7 @@ const fmtCommentTime = (iso: string): string => {
         </dl>
       </header>
 
-      <section class="detail-body">
+      <section class="detail-body" data-card-id={data.id}>
         <Content />
       </section>
 
@@ -580,6 +580,77 @@ const fmtCommentTime = (iso: string): string => {
       });
     }
   </script>
+
+  <script>
+    // Detail-page image thumbnails: wrap each <img>/<video> in `.detail-body`
+    // with `<span class="thumb"><a class="thumb-link" target="_blank">…</a>
+    // <button class="thumb-remove">✕</button></span>` so they render as
+    // 80×80 chips (per the CSS), open full-size on click, and surface a
+    // hover ✕ that calls DELETE /api/cards/:id/attachments?file=<basename>.
+    // Mirror of the board's wrapThumbnails() in index.astro at a different
+    // size; reuses the same DELETE endpoint shipped with PR #7.
+    const detailBody = document.querySelector<HTMLElement>('.detail-body');
+    if (detailBody) {
+      const cardId = detailBody.dataset.cardId ?? '';
+      detailBody.querySelectorAll<HTMLElement>('img, video').forEach((el) => {
+        // Skip if already wrapped (re-runs are no-ops).
+        const parent = el.parentElement;
+        if (parent?.classList.contains('thumb-link') || parent?.classList.contains('thumb')) return;
+
+        const src = (el as HTMLImageElement | HTMLVideoElement).getAttribute('src') ?? '';
+        const expectedPrefix = `/attachments/${cardId}/`;
+
+        const wrap = document.createElement('span');
+        wrap.className = 'thumb';
+
+        // Anchor wrapping for click-to-zoom: opens full-size in a new tab.
+        const link = document.createElement('a');
+        link.href = src;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.className = 'thumb-link';
+
+        el.replaceWith(wrap);
+        link.appendChild(el);
+        wrap.appendChild(link);
+
+        // Only wire the ✕ for files we actually own (under our attachments
+        // namespace). Markdown-linked images from other origins still get
+        // wrapped for layout consistency, just without the delete button.
+        if (!cardId || !src.startsWith(expectedPrefix)) return;
+        const filename = decodeURIComponent(src.slice(expectedPrefix.length));
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'thumb-remove';
+        btn.setAttribute('aria-label', `Remove ${filename}`);
+        btn.title = `Remove ${filename}`;
+        btn.textContent = '✕';
+        btn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window.confirm(`Remove ${filename}?`)) return;
+          btn.disabled = true;
+          try {
+            const r = await fetch(
+              `/api/cards/${encodeURIComponent(cardId)}/attachments?file=${encodeURIComponent(filename)}`,
+              { method: 'DELETE' },
+            );
+            if (!r.ok) {
+              const errBody = await r.text();
+              throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+            }
+            wrap.remove();
+          } catch (err) {
+            console.error('attachment delete failed:', err);
+            alert(`Couldn't remove image: ${err instanceof Error ? err.message : 'unknown error'}`);
+            btn.disabled = false;
+          }
+        });
+        wrap.appendChild(btn);
+      });
+    }
+  </script>
 </Layout>
 
 <style>
@@ -918,21 +989,71 @@ const fmtCommentTime = (iso: string): string => {
     margin-right: 0.4em;
   }
 
-  .detail-body :global(img),
-  .detail-body :global(video) {
-    display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 1em 0;
-    border-radius: 6px;
-    border: 1px solid var(--border-soft);
-    transition: border-color 180ms ease, box-shadow 220ms ease;
+  /* Detail-page images render as 80×80 1:1 thumbnails inside `.thumb`
+     wrappers that the page-level <script> creates. Click an image to
+     view full-size in a new tab; hover-✕ deletes (same DELETE endpoint
+     the board cards use). Mirrors the board pattern, just bigger since
+     the detail body has more breathing room than a board card. */
+  .detail-body :global(.thumb) {
+    position: relative;
+    display: inline-block;
+    margin: 0.4em 0.4em 0.4em 0;
+    vertical-align: top;
   }
 
-  .detail-body :global(img):hover,
-  .detail-body :global(video):hover {
+  .detail-body :global(.thumb-link) {
+    display: block;
+    line-height: 0;
+    border-bottom: none !important;
+  }
+
+  .detail-body :global(.thumb img),
+  .detail-body :global(.thumb video) {
+    display: block;
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--border-soft);
+    margin: 0;
+    transition: border-color 180ms ease, box-shadow 220ms ease;
+    cursor: zoom-in;
+  }
+
+  .detail-body :global(.thumb:hover img),
+  .detail-body :global(.thumb:hover video) {
     border-color: var(--flame);
     box-shadow: 0 0 18px -4px var(--flame-glow);
+  }
+
+  .detail-body :global(.thumb-remove) {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.78);
+    color: #fff;
+    font-size: 11px;
+    line-height: 14px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 150ms ease, background 150ms ease;
+  }
+
+  .detail-body :global(.thumb:hover .thumb-remove),
+  .detail-body :global(.thumb-remove:focus-visible) {
+    opacity: 1;
+  }
+
+  .detail-body :global(.thumb-remove:hover),
+  .detail-body :global(.thumb-remove:focus-visible) {
+    background: var(--flame-blocked);
+    outline: none;
   }
 
   .detail-body :global(blockquote) {
