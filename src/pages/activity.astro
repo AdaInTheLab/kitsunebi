@@ -1,0 +1,373 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import Flame from '../components/Flame.astro';
+import { readActivity } from '../lib/activity';
+
+const all = await getCollection('cards');
+const titleByCardId = new Map<string, string>(all.map((c) => [c.id, c.data.title]));
+
+const events = await readActivity({ limit: 200 });
+
+// Resolve card titles. Cards that no longer exist (deleted manually) keep
+// their id as a fallback. Also build the agent + type filter pools.
+const enriched = events.map((e) => ({
+  ...e,
+  cardTitle: e.cardId ? (titleByCardId.get(e.cardId) ?? null) : null,
+}));
+
+const agents = [...new Set(enriched.map((e) => e.agent).filter((x): x is string => !!x))].sort();
+const types = [...new Set(enriched.map((e) => e.type))].sort();
+
+const fmtRelative = (iso: string): string => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const now = Date.now();
+  const ms = now - d.getTime();
+  const min = Math.round(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric',
+  });
+};
+
+const fmtAbsolute = (iso: string): string => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
+
+const ICONS: Record<string, string> = {
+  create: '✨',
+  patch: '✎',
+  move: '→',
+  reorder: '↕',
+  touch: '·',
+  attach: '📎',
+  detach: '✕',
+  comment: '💬',
+  'auto-archive': '📦',
+};
+---
+
+<Layout title="Activity — kitsunebi" description={`${events.length} recent board events`}>
+  <main>
+    <nav class="breadcrumb">
+      <a href="/">← back to board</a>
+    </nav>
+
+    <header class="activity-head">
+      <div class="brand">
+        <Flame size={24} class="activity-flame" />
+        <h1>Activity</h1>
+      </div>
+      <p class="lede">
+        {events.length === 0
+          ? 'No recorded activity yet. Once cards start moving, this becomes the audit trail.'
+          : `Last ${events.length} board events from the git log, newest first.`}
+      </p>
+    </header>
+
+    {events.length > 0 && (
+      <>
+        <div class="filter-bar" role="search" aria-label="Filter activity">
+          {agents.length > 0 && (
+            <div class="filter-pills">
+              <button type="button" class="filter-pill is-active" data-filter="agent" data-value="">all agents</button>
+              {agents.map((a) => (
+                <button type="button" class="filter-pill" data-filter="agent" data-value={a}>🦊 {a}</button>
+              ))}
+            </div>
+          )}
+          {types.length > 0 && (
+            <div class="filter-pills type-pills">
+              <button type="button" class="filter-pill is-active" data-filter="type" data-value="">all types</button>
+              {types.map((t) => (
+                <button type="button" class="filter-pill" data-filter="type" data-value={t}>{ICONS[t] ?? '·'} {t}</button>
+              ))}
+            </div>
+          )}
+          <button type="button" class="filter-clear" data-clear>clear</button>
+        </div>
+
+        <ol class="activity-list">
+          {enriched.map((e) => (
+            <li class="event" data-agent={e.agent ?? ''} data-type={e.type}>
+              <span class="event-icon" aria-hidden="true">{ICONS[e.type] ?? '·'}</span>
+              <span class="event-agent">
+                {e.agent ? <a href={`/people/${e.agent}/`}>🦊 {e.agent}</a> : <span class="event-agent-anon">—</span>}
+              </span>
+              <span class="event-detail">
+                {e.detail}
+                {e.cardId && (
+                  <>
+                    {' '}on{' '}
+                    <a href={`/cards/${e.cardId}/`} class="event-card">{e.cardTitle ?? e.cardId}</a>
+                  </>
+                )}
+              </span>
+              <time class="event-time" datetime={e.timestamp} title={fmtAbsolute(e.timestamp)}>{fmtRelative(e.timestamp)}</time>
+            </li>
+          ))}
+        </ol>
+      </>
+    )}
+  </main>
+
+  <script>
+    type FilterState = { agent: string; type: string };
+    const state: FilterState = { agent: '', type: '' };
+
+    const apply = () => {
+      document.querySelectorAll<HTMLElement>('.event').forEach((row) => {
+        const a = row.dataset.agent ?? '';
+        const t = row.dataset.type ?? '';
+        const ok = (!state.agent || a === state.agent) && (!state.type || t === state.type);
+        row.style.display = ok ? '' : 'none';
+      });
+    };
+
+    const setActive = (group: string, value: string) => {
+      document.querySelectorAll<HTMLButtonElement>(`[data-filter="${group}"]`).forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.value === value);
+      });
+    };
+
+    document.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
+      if (btn) {
+        const group = btn.dataset.filter as 'agent' | 'type';
+        const value = btn.dataset.value ?? '';
+        state[group] = value;
+        setActive(group, value);
+        apply();
+        return;
+      }
+      const clear = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-clear]');
+      if (clear) {
+        state.agent = '';
+        state.type = '';
+        setActive('agent', '');
+        setActive('type', '');
+        apply();
+      }
+    });
+  </script>
+</Layout>
+
+<style>
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  .breadcrumb {
+    margin-bottom: 1.6rem;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--flame-in_progress);
+    border-bottom-color: var(--flame-in_progress);
+  }
+
+  .activity-head { margin-bottom: 1.8rem; }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.4rem;
+  }
+
+  :global(.activity-flame) {
+    color: var(--flame-in_progress);
+  }
+
+  h1 {
+    font-family: var(--font-serif);
+    font-size: 1.85rem;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+
+  .lede {
+    color: var(--text-dim);
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+    margin-bottom: 1.4rem;
+  }
+
+  .filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .filter-pill {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.18rem 0.65rem;
+    font: inherit;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+  }
+
+  .filter-pill:hover {
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+  }
+
+  .filter-pill.is-active {
+    background: var(--flame-in_progress-glow);
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+  }
+
+  .filter-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-soft);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-decoration: underline dashed;
+    text-underline-offset: 3px;
+  }
+
+  .filter-clear:hover {
+    color: var(--flame-blocked);
+  }
+
+  .activity-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .event {
+    display: grid;
+    grid-template-columns: auto 6.5rem 1fr auto;
+    gap: 0.55rem;
+    align-items: baseline;
+    padding: 0.4rem 0.55rem;
+    border-bottom: 1px dashed var(--border-soft);
+    font-size: 0.85rem;
+  }
+
+  .event:hover {
+    background: var(--bg-card-hover);
+  }
+
+  .event-icon {
+    color: var(--flame-in_progress);
+    font-variant-emoji: text;
+    width: 1.1em;
+    text-align: center;
+  }
+
+  .event-agent a {
+    color: var(--text-dim);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .event-agent a:hover {
+    color: var(--flame);
+    border-bottom-color: var(--flame);
+  }
+
+  .event-agent-anon {
+    color: var(--text-soft);
+  }
+
+  .event-detail {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .event-card {
+    color: var(--flame-done);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .event-card:hover {
+    color: var(--flame);
+    border-bottom-color: var(--flame);
+  }
+
+  .event-time {
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 600px) {
+    .event {
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto;
+      row-gap: 0.1rem;
+    }
+    .event-agent {
+      grid-column: 2;
+      grid-row: 1;
+      font-size: 0.78rem;
+    }
+    .event-detail {
+      grid-column: 2;
+      grid-row: 2;
+    }
+    .event-time {
+      grid-column: 3;
+      grid-row: 1 / span 2;
+      align-self: center;
+    }
+    .event-icon {
+      grid-row: 1 / span 2;
+    }
+  }
+</style>
