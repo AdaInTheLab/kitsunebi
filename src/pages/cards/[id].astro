@@ -123,7 +123,7 @@ const fmtCommentTime = (iso: string): string => {
         <Content />
       </section>
 
-      <section class="comments" aria-label="Comments" data-card-id={data.id}>
+      <section id="comments" class="comments" aria-label="Comments" data-card-id={data.id}>
         <header class="comments-head">
           <h2>Comments</h2>
           <span class="comments-count">{comments.length === 0 ? 'none yet' : `${comments.length}`}</span>

@@ -4,6 +4,7 @@ import Layout from '../layouts/Layout.astro';
 import Card from '../components/Card.astro';
 import Flame from '../components/Flame.astro';
 import { maybeSweepArchived } from '../lib/archive-sweep';
+import { countComments } from '../lib/comments-fs';
 
 await maybeSweepArchived();
 
@@ -29,6 +30,10 @@ for (const c of archived) for (const t of c.data.tags) tagSet.add(t);
 const allTags = [...tagSet].sort();
 
 const archiveDays = Number(import.meta.env.KITSUNEBI_ARCHIVE_DAYS ?? process.env.KITSUNEBI_ARCHIVE_DAYS ?? 14);
+
+const commentCounts = new Map<string, number>(
+  await Promise.all(archived.map(async (c) => [c.id, await countComments(c.id)] as [string, number])),
+);
 ---
 
 <Layout title="Archive — kitsunebi" description={`${archived.length} archived cards`}>
@@ -78,7 +83,7 @@ const archiveDays = Number(import.meta.env.KITSUNEBI_ARCHIVE_DAYS ?? process.env
         </div>
 
         <div class="archive-list">
-          {archived.map((card, i) => <Card card={card} index={i} />)}
+          {archived.map((card, i) => <Card card={card} index={i} commentCount={commentCounts.get(card.id) ?? 0} />)}
         </div>
       </>
     )}
