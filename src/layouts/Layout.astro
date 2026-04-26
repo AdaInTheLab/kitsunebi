@@ -1,4 +1,6 @@
 ---
+import NeonOverride from '../components/NeonOverride.astro';
+
 interface Props {
   title?: string;
   description?: string;
@@ -43,6 +45,7 @@ const ogImage = new URL('/og-image.png', Astro.site ?? 'https://kitsunebi.kitsun
     <title>{title}</title>
   </head>
   <body>
+    <NeonOverride />
     <slot />
   </body>
 </html>

@@ -1,0 +1,310 @@
+---
+/**
+ * Neon Override toggle + activation theatre.
+ *
+ * Mounts (in Layout.astro):
+ *   - Fixed-position toggle in the top-right corner ("Neon Override" /
+ *     hover "Ignite Tails")
+ *   - 9-tail ignition overlay that fires once when the user toggles on
+ *   - A glitch-sweep scanline that runs alongside the ignition
+ *
+ * State:
+ *   - body.neon-override   ~ persistent visual mode (CSS overrides in Layout)
+ *   - body.is-igniting     ~ transient (cleared after ~2s); drives the
+ *                            ignition animation only on toggle-on, never on
+ *                            page-load
+ *
+ * Persisted in localStorage at `kitsunebi:neon-override` ("on" | "off").
+ *
+ * The card spec (`cards/neon-override-phase-1.md`) reserves activation
+ * for "after VPS root on May 1–2, 2026" on Vesper's Fox Den dashboard.
+ * Kitsunebi's compatibility mode is a parallel toggle so the two
+ * surfaces feel coherent when the moment arrives.
+ */
+import Flame from './Flame.astro';
+
+// Nine tails fanning behind page-center, spread from -100° to +100°
+// in 25° steps. The kyubi reference is the point — this is what gets
+// staggered-ignited.
+const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
+---
+
+<button
+  class="neon-toggle"
+  type="button"
+  data-neon-toggle
+  title="Ignite Tails"
+  aria-pressed="false"
+  aria-label="Toggle Neon Override"
+>
+  <Flame size={14} class="neon-toggle-flame" />
+  <span class="neon-toggle-label">Neon Override</span>
+</button>
+
+<div class="neon-tails" data-neon-tails aria-hidden="true">
+  {tailAngles.map((angle, i) => (
+    <span class="tail" style={`--tail-angle: ${angle}deg; --tail-delay: ${i * 110}ms;`}>
+      <Flame size={36} class="tail-flame" />
+    </span>
+  ))}
+</div>
+
+<div class="neon-glitch" data-neon-glitch aria-hidden="true"></div>
+
+<script is:inline>
+  // Run inline + un-bundled so the persisted class lands BEFORE first
+  // paint — otherwise the page flashes default-mode for a frame on every
+  // load when override is on.
+  (function () {
+    const KEY = 'kitsunebi:neon-override';
+    const apply = (on) => {
+      document.body.classList.toggle('neon-override', on);
+      const btn = document.querySelector('[data-neon-toggle]');
+      if (btn) btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    let initial = 'off';
+    try { initial = localStorage.getItem(KEY) === 'on' ? 'on' : 'off'; } catch {}
+    // body may not exist yet at <head>-time; defer the class attach.
+    if (document.body) {
+      apply(initial === 'on');
+    } else {
+      document.addEventListener('DOMContentLoaded', () => apply(initial === 'on'), { once: true });
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-neon-toggle]');
+      if (!btn) return;
+      const turningOn = !document.body.classList.contains('neon-override');
+      try { localStorage.setItem(KEY, turningOn ? 'on' : 'off'); } catch {}
+      apply(turningOn);
+      if (turningOn) {
+        // Restart the ignition animation. CSS animations only re-run if
+        // the class is removed and re-added on a fresh frame.
+        document.body.classList.remove('is-igniting');
+        // Force a reflow so the animation resets.
+        void document.body.offsetWidth;
+        document.body.classList.add('is-igniting');
+        window.setTimeout(() => document.body.classList.remove('is-igniting'), 2400);
+      }
+    });
+  })();
+</script>
+
+<style is:global>
+  /* ─── The toggle pill ─── */
+  .neon-toggle {
+    position: fixed;
+    top: 0.6rem;
+    right: 0.6rem;
+    z-index: 50;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.7rem 0.25rem 0.5rem;
+    background: var(--bg-card);
+    color: var(--text-soft);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font: inherit;
+    font-size: 0.72rem;
+    font-family: var(--font-mono);
+    letter-spacing: 0.05em;
+    cursor: pointer;
+    transition: color 200ms ease, border-color 200ms ease, background 200ms ease, box-shadow 200ms ease;
+  }
+
+  .neon-toggle:hover {
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+    box-shadow: 0 0 12px -2px var(--flame-in_progress-glow);
+  }
+
+  .neon-toggle .neon-toggle-flame {
+    color: var(--flame-in_progress);
+  }
+
+  body.neon-override .neon-toggle {
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+    background: linear-gradient(180deg, #1a0a08 0%, #100507 100%);
+    box-shadow: 0 0 16px -2px var(--flame-in_progress-glow), inset 0 0 8px -2px var(--flame-in_progress-glow);
+  }
+
+  /* ─── Persistent override palette ─── */
+  /* Goal per the card spec: warm-grade everything; deeper shadows; stronger
+     bloom; richer cinematic lighting. NOT loud club energy. */
+  body.neon-override {
+    --bg-0: #060608;
+    --bg-card: #18101a;
+    --bg-card-hover: #211522;
+
+    --flame-backlog: #56c8f0;
+    --flame-in_progress: #ff5a14;
+    --flame-blocked: #ff2a47;
+    --flame-done: #f0a040;
+    --flame-archived: #6a5a4a;
+
+    --flame-backlog-glow: #56c8f044;
+    --flame-in_progress-glow: #ff5a1444;
+    --flame-blocked-glow: #ff2a4744;
+    --flame-done-glow: #f0a04036;
+    --flame-archived-glow: #6a5a4a26;
+  }
+
+  /* Stronger card bloom in override mode. Direct override of the .card
+     baseline shadow defined in Card.astro's scoped CSS — global is:global
+     here lets us reach the scoped class names. */
+  body.neon-override :global(.card) {
+    box-shadow:
+      0 1px 0 var(--flame-glow) inset,
+      0 0 28px -6px var(--flame-glow),
+      0 0 60px -28px var(--flame);
+  }
+
+  body.neon-override :global(.card:hover) {
+    box-shadow:
+      0 2px 0 var(--flame-glow) inset,
+      0 0 38px -4px var(--flame-glow),
+      0 0 80px -28px var(--flame);
+  }
+
+  /* The body background gets a warm/teal grade — subtle, not scenery-stealing. */
+  body.neon-override::after {
+    background:
+      radial-gradient(ellipse at center,
+        rgba(255, 90, 20, 0.04) 0%,
+        rgba(10, 10, 14, 0.40) 50%,
+        rgba(10, 10, 14, 0.65) 100%),
+      linear-gradient(135deg,
+        rgba(86, 200, 240, 0.04) 0%,
+        rgba(255, 90, 20, 0.04) 100%);
+  }
+
+  /* ─── 9-tail ignition ─── */
+  /* The 9 tails fan behind page-center, fly outward radially, ignite cyan
+     → warm orange, settle. Fires only when body.is-igniting is set,
+     which happens on toggle-on (not on page-load). */
+  .neon-tails {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+    z-index: 40;
+    /* Hidden unless igniting — keeps the 9 SVGs out of the layout & a11y tree. */
+    visibility: hidden;
+  }
+
+  body.is-igniting .neon-tails {
+    visibility: visible;
+  }
+
+  .neon-tails .tail {
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: 0 0;
+    /* Flames inherit color via --flame-in_progress, but each tail starts
+       cool cyan and warms across its animation lifetime. */
+    color: #56c8f0;
+    opacity: 0;
+    filter: blur(6px);
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--tail-angle))
+      translateY(0)
+      scale(0.4);
+  }
+
+  body.is-igniting .neon-tails .tail {
+    animation: tail-ignite 1.7s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation-delay: var(--tail-delay);
+  }
+
+  @keyframes tail-ignite {
+    0%   {
+      opacity: 0;
+      filter: blur(6px);
+      color: #56c8f0;
+      transform:
+        translate(-50%, -50%)
+        rotate(var(--tail-angle))
+        translateY(0)
+        scale(0.4);
+    }
+    35% {
+      opacity: 1;
+      filter: blur(0);
+      color: #56c8f0;
+    }
+    65% {
+      opacity: 0.95;
+      filter: blur(0);
+      color: #ff8a3d;
+    }
+    100% {
+      opacity: 0;
+      filter: blur(3px);
+      color: #ff5a14;
+      transform:
+        translate(-50%, -50%)
+        rotate(var(--tail-angle))
+        translateY(-38vmin)
+        scale(1.1);
+    }
+  }
+
+  .neon-tails .tail :global(.tail-flame) {
+    /* Each tail's flame uses currentColor; we drive that from the keyframes
+       so the cyan→orange transition lands on the actual SVG. */
+    filter:
+      drop-shadow(0 0 8px currentColor)
+      drop-shadow(0 0 22px currentColor);
+    animation: none !important; /* override Flame's flicker; the ignite anim runs the wrapper */
+  }
+
+  /* ─── Glitch-crackle sweep ─── */
+  /* Single horizontal sliver, top-to-bottom across the viewport once.
+     Subtle RGB shift; quick (≈900ms). Spec calls for a "single subtle
+     glitch-crackle sweep" — singular and contained. */
+  .neon-glitch {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 39;
+    background: linear-gradient(180deg,
+      transparent 0%,
+      transparent 49.4%,
+      rgba(86, 200, 240, 0.08) 49.5%,
+      rgba(255, 90, 20, 0.10) 50.0%,
+      rgba(255, 42, 71, 0.08) 50.5%,
+      transparent 50.6%,
+      transparent 100%);
+    opacity: 0;
+    transform: translateY(-100%);
+    mix-blend-mode: screen;
+  }
+
+  body.is-igniting .neon-glitch {
+    animation: glitch-sweep 1100ms cubic-bezier(0.83, 0, 0.17, 1) 200ms forwards;
+  }
+
+  @keyframes glitch-sweep {
+    0%   { opacity: 0;   transform: translateY(-100%); }
+    8%   { opacity: 1; }
+    50%  { opacity: 1;   transform: translateY(0); }
+    92%  { opacity: 1; }
+    100% { opacity: 0;   transform: translateY(100%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body.is-igniting .neon-tails .tail,
+    body.is-igniting .neon-glitch {
+      animation: none;
+    }
+    body.is-igniting .neon-tails {
+      visibility: hidden;
+    }
+  }
+</style>
