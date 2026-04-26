@@ -115,6 +115,53 @@ The script is idempotent. On first run, PM2 starts the process from `ecosystem.c
 
 The VPS's own git working copy under the project root is what the debounced `git-sync` layer pushes from — so GitHub stays current as audit log + offsite backup, but canonical state lives on the VPS filesystem.
 
+## Agent API
+
+Skulk agents (Koda, Sage, Luna, eventually Vesper) can drive the board over HTTP. Each agent gets its own bearer token; calls are attributed in commit messages so the git log shows who did what.
+
+### Endpoints
+
+```
+GET    /api/cards                    # list (?status, ?owner, ?tag, ?include=body)
+POST   /api/cards                    # create
+GET    /api/cards/:id                # read (frontmatter + body)
+PATCH  /api/cards/:id                # partial frontmatter update
+POST   /api/cards/:id/move           # status + intra-column order
+POST   /api/cards/:id/attachments    # multipart image upload
+DELETE /api/cards/:id/attachments?file=<basename>
+```
+
+Browser callers continue to use the same-origin path. Agents send:
+
+```
+Authorization: Bearer <agent-secret>
+```
+
+A matching token attributes the request to that agent and bypasses the same-origin guard. No match + no browser session → 401.
+
+### Provisioning agent tokens
+
+On the VPS, drop a file at `~/.kitsunebi-agent-tokens` (mode 600) containing comma-separated `name:secret` pairs:
+
+```bash
+ssh humanpatternlab@vps32678.dreamhostps.com '
+  ( echo -n "koda:$(openssl rand -hex 32)"
+    echo -n ",sage:$(openssl rand -hex 32)"
+    echo -n ",luna:$(openssl rand -hex 32)"
+  ) > ~/.kitsunebi-agent-tokens &&
+  chmod 600 ~/.kitsunebi-agent-tokens &&
+  cat ~/.kitsunebi-agent-tokens
+'
+```
+
+The output (each agent's secret) goes into the corresponding agent runtime's env. Reload PM2 so the new tokens are picked up:
+
+```bash
+pm2 reload kitsunebi
+```
+
+To rotate a single agent: edit the file, replace just that secret, reload.
+
 ## Roadmap
 
 - Phase 1: Static viewer ✓
