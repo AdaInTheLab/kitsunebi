@@ -51,6 +51,7 @@ echo "==> syncing to $SSH_HOST:$REMOTE_DIR"
 # We rsync:
 #   - dist/        (the Astro Node standalone bundle; self-contained)
 #   - cards/       (source of truth for card content; the API mutates these)
+#   - comments/    (per-card comment jsonl files; mutated by the API)
 #   - public/      (static assets including attachments/)
 #   - ecosystem.config.cjs   (PM2 config)
 #
@@ -59,9 +60,9 @@ echo "==> syncing to $SSH_HOST:$REMOTE_DIR"
 #   - src/, *.config.*, package*.json   (only needed to build, not to run)
 #   - .git/   (the VPS has its own clone for git-sync; see below)
 #
-# We use --delete on dist/ so stale chunks get cleaned up, but NOT on cards/
-# or public/ — those are mutated on the VPS by the API and we'd lose
-# anything created since the last local pull.
+# We use --delete on dist/ so stale chunks get cleaned up, but NOT on cards/,
+# comments/, or public/ — those are mutated on the VPS by the API and we'd
+# lose anything created since the last local pull.
 rsync -avz $DRY_RUN --delete \
   -e "ssh $SSH_KEY_FLAG" \
   dist/ \
@@ -71,6 +72,15 @@ rsync -avz $DRY_RUN \
   -e "ssh $SSH_KEY_FLAG" \
   cards/ \
   "$SSH_HOST:$REMOTE_DIR/cards/"
+
+# `comments/` may not exist locally if no card has been commented on yet;
+# skip if absent so the rsync doesn't fail.
+if [ -d comments ]; then
+  rsync -avz $DRY_RUN \
+    -e "ssh $SSH_KEY_FLAG" \
+    comments/ \
+    "$SSH_HOST:$REMOTE_DIR/comments/"
+fi
 
 rsync -avz $DRY_RUN \
   -e "ssh $SSH_KEY_FLAG" \

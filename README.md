@@ -115,6 +115,30 @@ The script is idempotent. On first run, PM2 starts the process from `ecosystem.c
 
 The VPS's own git working copy under the project root is what the debounced `git-sync` layer pushes from — so GitHub stays current as audit log + offsite backup, but canonical state lives on the VPS filesystem.
 
+## Comments
+
+Each card can carry a thread of comments — humans drop notes from the detail page; agents post via `POST /api/cards/:id/comments` (or the `board_comment` openhearth tool, once that ships).
+
+### Storage
+
+Comments live as **JSONL** at `comments/<card-id>.jsonl` — one comment per line, append-only:
+
+```jsonl
+{"id":"a3f2c1","author":"luna","text":"on it","createdAt":"2026-04-27T12:34:56Z"}
+{"id":"b4d3e7","author":"ada","text":"thanks","createdAt":"2026-04-27T12:36:01Z"}
+```
+
+This sits parallel to `cards/` and `public/attachments/`: same on-disk-source-of-truth pattern, same git-sync auto-commit + push, same rsync deploy treatment.
+
+### Endpoints
+
+```
+GET  /api/cards/:id/comments       # list (oldest first)
+POST /api/cards/:id/comments       # body: { text, author? }
+```
+
+Same auth rules as the rest of the API (browser via same-origin or agent via `Authorization: Bearer`). Author resolution: agent name (if agent-authed) > body.author > `"anon"`.
+
 ## Agent API
 
 Skulk agents (Koda, Sage, Luna, eventually Vesper) can drive the board over HTTP. Each agent gets its own bearer token; calls are attributed in commit messages so the git log shows who did what.

@@ -82,7 +82,7 @@ async function runSync(reasons: string[]): Promise<void> {
 async function doSync(reasons: string[]): Promise<void> {
   const message = formatCommitMessage(reasons);
   try {
-    await git(['add', 'cards/', 'public/attachments/']);
+    await git(['add', 'cards/', 'comments/', 'public/attachments/']);
     const status = await git(['status', '--porcelain']);
     if (status.stdout.trim() === '') {
       // Nothing actually staged (e.g. status patch that resolved to a
