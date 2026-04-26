@@ -2,6 +2,7 @@
 import { getEntry, render } from 'astro:content';
 import Layout from '../../layouts/Layout.astro';
 import Flame from '../../components/Flame.astro';
+import { listComments } from '../../lib/comments-fs';
 
 // Server-rendered. We read the card from disk on every request so post-API
 // mutations (drag-drop, inline edit) show up immediately without a rebuild.
@@ -15,6 +16,7 @@ if (!card) {
 }
 const { Content } = await render(card);
 const data = card.data;
+const comments = await listComments(data.id);
 
 const statusLabels: Record<string, string> = {
   backlog: 'Backlog',
@@ -104,6 +106,42 @@ const fmt = (d: Date | null) =>
 
       <section class="detail-body">
         <Content />
+      </section>
+
+      <section class="comments" aria-label="Comments" data-card-id={data.id}>
+        <header class="comments-head">
+          <h2>Comments</h2>
+          <span class="comments-count">{comments.length === 0 ? 'none yet' : `${comments.length}`}</span>
+        </header>
+
+        <ol class="comment-list" data-comment-list>
+          {comments.map((c) => (
+            <li class="comment" data-comment-id={c.id}>
+              <header class="comment-meta">
+                <a href={`/people/${c.author}/`} class="comment-author">🦊 {c.author}</a>
+                <time class="comment-time" datetime={c.createdAt}>{c.createdAt}</time>
+              </header>
+              <div class="comment-body">{c.text}</div>
+            </li>
+          ))}
+        </ol>
+
+        <form class="comment-form" data-comment-form>
+          <textarea
+            name="text"
+            placeholder="Leave a comment…"
+            rows="3"
+            required
+            maxlength="4000"
+          ></textarea>
+          <div class="comment-form-row">
+            <label class="comment-author-field">
+              as <input type="text" name="author" placeholder="ada" maxlength="60" />
+            </label>
+            <button type="submit">Post</button>
+            <span class="comment-form-status" data-comment-status></span>
+          </div>
+        </form>
       </section>
 
       <section class="detail-attach" aria-label="Attach an image to this card">
@@ -458,6 +496,94 @@ const fmt = (d: Date | null) =>
       editBtn?.addEventListener('click', (e) => {
         e.preventDefault();
         enterEdit();
+      });
+    }
+  </script>
+
+  <script>
+    // Comment form: POST /api/cards/:id/comments, append the response to
+    // the list, clear the textarea. Server-side rendering already drew the
+    // existing comments; this only handles the new-comment add path.
+    const commentSection = document.querySelector<HTMLElement>('section.comments');
+    if (commentSection) {
+      const cardId = commentSection.dataset.cardId ?? '';
+      const form = commentSection.querySelector<HTMLFormElement>('[data-comment-form]');
+      const list = commentSection.querySelector<HTMLOListElement>('[data-comment-list]');
+      const status = commentSection.querySelector<HTMLElement>('[data-comment-status]');
+      const countEl = commentSection.querySelector<HTMLElement>('.comments-count');
+
+      const showStatus = (msg: string, kind: 'work' | 'ok' | 'err' | 'idle' = 'idle') => {
+        if (!status) return;
+        status.textContent = msg;
+        status.dataset.kind = kind;
+      };
+
+      const appendComment = (c: { id: string; author: string; text: string; createdAt: string }) => {
+        if (!list) return;
+        const li = document.createElement('li');
+        li.className = 'comment';
+        li.dataset.commentId = c.id;
+
+        const header = document.createElement('header');
+        header.className = 'comment-meta';
+
+        const a = document.createElement('a');
+        a.href = `/people/${encodeURIComponent(c.author)}/`;
+        a.className = 'comment-author';
+        a.textContent = `🦊 ${c.author}`;
+        header.appendChild(a);
+
+        const time = document.createElement('time');
+        time.className = 'comment-time';
+        time.dateTime = c.createdAt;
+        time.textContent = c.createdAt;
+        header.appendChild(time);
+
+        const body = document.createElement('div');
+        body.className = 'comment-body';
+        body.textContent = c.text;
+
+        li.appendChild(header);
+        li.appendChild(body);
+        list.appendChild(li);
+
+        if (countEl) {
+          const next = list.querySelectorAll('.comment').length;
+          countEl.textContent = String(next);
+        }
+      };
+
+      form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const text = String(fd.get('text') ?? '').trim();
+        const author = String(fd.get('author') ?? '').trim();
+        if (!text) return;
+
+        showStatus('Posting…', 'work');
+        const submitBtn = form.querySelector<HTMLButtonElement>('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+          const r = await fetch(`/api/cards/${encodeURIComponent(cardId)}/comments`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, author: author || undefined }),
+          });
+          if (!r.ok) {
+            const errBody = await r.text();
+            throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+          }
+          const data = await r.json();
+          if (data?.comment) appendComment(data.comment);
+          form.reset();
+          showStatus('', 'idle');
+        } catch (err) {
+          console.error('comment post failed:', err);
+          showStatus(err instanceof Error ? err.message : 'post failed', 'err');
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
       });
     }
   </script>
@@ -824,6 +950,179 @@ const fmt = (d: Date | null) =>
     font-style: italic;
     opacity: 0.9;
   }
+
+  /* ---------- comments ---------- */
+  .comments {
+    margin-top: 2rem;
+    padding-top: 1.4rem;
+    border-top: 1px dashed var(--border-soft);
+  }
+
+  .comments-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.6rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .comments h2 {
+    font-family: var(--font-serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text);
+    letter-spacing: 0.005em;
+  }
+
+  .comments-count {
+    font-size: 0.7rem;
+    color: var(--text-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .comment-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+
+  .comment {
+    background: var(--bg-card);
+    border: 1px solid var(--border-soft);
+    border-left: 2px solid var(--flame);
+    border-radius: 5px;
+    padding: 0.55rem 0.75rem;
+  }
+
+  .comment-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.6rem;
+    font-size: 0.72rem;
+    margin-bottom: 0.35rem;
+  }
+
+  .comment-author {
+    color: var(--text-dim);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .comment-author:hover {
+    color: var(--flame);
+    border-bottom-color: var(--flame);
+  }
+
+  .comment-time {
+    color: var(--text-soft);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .comment-body {
+    font-size: 0.88rem;
+    color: var(--text);
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+  }
+
+  .comment-form {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .comment-form textarea {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+    font: inherit;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    resize: vertical;
+    min-height: 4em;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .comment-form textarea:focus {
+    outline: none;
+    border-color: var(--flame);
+    box-shadow: 0 0 0 1px var(--flame), 0 0 14px -6px var(--flame-glow);
+  }
+
+  .comment-form-row {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-wrap: wrap;
+  }
+
+  .comment-author-field {
+    color: var(--text-soft);
+    font-size: 0.78rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .comment-author-field input {
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.1rem 0.55rem;
+    font: inherit;
+    font-size: 0.78rem;
+    width: 7rem;
+  }
+
+  .comment-author-field input:focus {
+    outline: none;
+    border-color: var(--flame);
+  }
+
+  .comment-form button[type="submit"] {
+    background: var(--flame-glow);
+    border: 1px solid var(--flame);
+    color: var(--flame);
+    border-radius: 999px;
+    padding: 0.3rem 0.85rem;
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease;
+  }
+
+  .comment-form button[type="submit"]:hover:not(:disabled) {
+    background: var(--flame);
+    color: var(--bg-0);
+  }
+
+  .comment-form button[type="submit"]:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  .comment-form-status {
+    font-size: 0.78rem;
+    color: var(--text-soft);
+  }
+
+  .comment-form-status[data-kind="work"] { color: var(--flame-in_progress); }
+  .comment-form-status[data-kind="ok"]   { color: var(--flame-done); }
+  .comment-form-status[data-kind="err"]  { color: var(--flame-blocked); }
 
   /* ---------- attach image control ---------- */
   .detail-attach {
