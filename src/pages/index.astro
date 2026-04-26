@@ -494,6 +494,69 @@ const allPeople = [...peopleSet].sort();
           alert('keys:\n  /       filter\n  j / ↓   next card\n  k / ↑   previous\n  Enter   open\n  Esc     clear\n  ?       help');
         }
       });
+
+      // ---------- Image thumbnails on cards ----------
+      // Card-body images render as bare <img> from markdown. Wrap each in a
+      // `.thumb` span and append a ✕ button that calls
+      // `DELETE /api/cards/:id/attachments?file=<basename>`.
+      function wrapThumbnails() {
+        document.querySelectorAll<HTMLElement>('.card .card-body img, .card .card-body video').forEach((el) => {
+          if (el.parentElement?.classList.contains('thumb')) return;
+          const card = el.closest<HTMLElement>('.card');
+          const cardId = card?.dataset.cardId ?? '';
+          const src = (el as HTMLImageElement | HTMLVideoElement).getAttribute('src') ?? '';
+          const expectedPrefix = `/attachments/${cardId}/`;
+          if (!cardId || !src.startsWith(expectedPrefix)) {
+            // Not an attachment we own — skip the remove affordance, but still
+            // make it 1:1 by wrapping (so layout is consistent).
+            const wrap = document.createElement('span');
+            wrap.className = 'thumb';
+            el.replaceWith(wrap);
+            wrap.appendChild(el);
+            return;
+          }
+          const filename = decodeURIComponent(src.slice(expectedPrefix.length));
+
+          const wrap = document.createElement('span');
+          wrap.className = 'thumb';
+          el.replaceWith(wrap);
+          wrap.appendChild(el);
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'thumb-remove';
+          btn.setAttribute('aria-label', `Remove ${filename}`);
+          btn.title = `Remove ${filename}`;
+          btn.textContent = '✕';
+          btn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!window.confirm(`Remove ${filename}?`)) return;
+            btn.disabled = true;
+            try {
+              const r = await fetch(
+                `/api/cards/${encodeURIComponent(cardId)}/attachments?file=${encodeURIComponent(filename)}`,
+                { method: 'DELETE' },
+              );
+              if (!r.ok) {
+                const errBody = await r.text();
+                throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+              }
+              wrap.remove();
+            } catch (err) {
+              console.error('attachment delete failed:', err);
+              alert(`Couldn't remove image: ${err instanceof Error ? err.message : 'unknown error'}`);
+              btn.disabled = false;
+            }
+          });
+          // The card itself is draggable; without this the mousedown-then-drag
+          // on the button would start dragging the whole card.
+          btn.addEventListener('mousedown', (e) => e.stopPropagation());
+          btn.addEventListener('dragstart', (e) => e.preventDefault());
+          wrap.appendChild(btn);
+        });
+      }
+      wrapThumbnails();
     </script>
 
     <footer class="site-foot">

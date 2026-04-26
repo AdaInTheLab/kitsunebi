@@ -263,21 +263,60 @@ const dueClass = daysUntilDue === null
     color: var(--text);
   }
 
-  .card-body :global(img),
-  .card-body :global(video) {
+  /* On the board, attached images render as 50×50 1:1 thumbnails instead of
+     full-width. Multiple thumbs flow inline-block and wrap. The full image
+     is still viewable on the card detail page. */
+  .card-body :global(.thumb) {
+    position: relative;
+    display: inline-block;
+    margin: 0.4em 0.3em 0.4em 0;
+    vertical-align: top;
+  }
+
+  .card-body :global(.thumb img),
+  .card-body :global(.thumb video) {
     display: block;
-    max-width: 100%;
-    height: auto;
-    margin: 0.6em 0;
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
     border-radius: 4px;
     border: 1px solid var(--border-soft);
     transition: border-color 180ms ease, box-shadow 220ms ease;
   }
 
-  .card:hover .card-body :global(img),
-  .card:hover .card-body :global(video) {
+  .card:hover .card-body :global(.thumb img),
+  .card:hover .card-body :global(.thumb video) {
     border-color: var(--flame);
     box-shadow: 0 0 14px -4px var(--flame-glow);
+  }
+
+  .card-body :global(.thumb-remove) {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.72);
+    color: #fff;
+    font-size: 11px;
+    line-height: 14px;
+    text-align: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 150ms ease, background 150ms ease;
+  }
+
+  .card-body :global(.thumb:hover .thumb-remove),
+  .card-body :global(.thumb-remove:focus-visible) {
+    opacity: 1;
+  }
+
+  .card-body :global(.thumb-remove:hover),
+  .card-body :global(.thumb-remove:focus-visible) {
+    background: var(--flame-blocked);
   }
 
   .card-body :global(figure) {

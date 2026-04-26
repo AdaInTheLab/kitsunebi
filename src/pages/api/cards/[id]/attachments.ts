@@ -15,8 +15,8 @@
  */
 
 import type { APIRoute } from 'astro';
-import { mkdir, writeFile, access, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, writeFile, access, readFile, unlink } from 'node:fs/promises';
+import { join, sep } from 'node:path';
 import { json, jsonError, requireSameOrigin } from '../../../../lib/api-helpers';
 import { scheduleGitSync } from '../../../../lib/git-sync';
 
@@ -112,6 +112,80 @@ export const POST: APIRoute = async (ctx) => {
     appended_to_body: shouldAppend,
   });
 };
+
+/**
+ * DELETE /api/cards/:id/attachments?file=<basename>
+ *
+ * Removes the file from public/attachments/<id>/ AND strips the matching
+ * `![alt](/attachments/<id>/<file>)` markdown reference from the card body.
+ * Used by the ✕ button on board-view thumbnails.
+ */
+export const DELETE: APIRoute = async (ctx) => {
+  const reject = requireSameOrigin(ctx);
+  if (reject) return reject;
+
+  const id = ctx.params.id;
+  if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,99}$/i.test(id)) {
+    return jsonError(400, 'invalid_id', 'Path parameter "id" is missing or unsafe.');
+  }
+
+  const filename = new URL(ctx.request.url).searchParams.get('file');
+  if (!filename || !/^[a-zA-Z0-9._-]{1,200}$/.test(filename)) {
+    return jsonError(400, 'invalid_filename', 'Query parameter "file" is required and must be a safe basename.');
+  }
+
+  const cardDir = join(ATTACHMENTS_DIR, id);
+  const target = join(cardDir, filename);
+  // Defense in depth against `..` shenanigans even though the regex above already blocks them.
+  if (!target.startsWith(cardDir + sep)) {
+    return jsonError(400, 'path_escape', 'Refusing to operate outside the card attachments directory.');
+  }
+
+  try {
+    await unlink(target);
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return jsonError(404, 'not_found', `No such attachment: ${filename}`);
+    }
+    return jsonError(500, 'unlink_failed', err?.message ?? 'Failed to remove file.');
+  }
+
+  let bodyReferenceRemoved = false;
+  try {
+    bodyReferenceRemoved = await removeImageReferenceFromBody(id, `/attachments/${id}/${filename}`);
+  } catch (err: any) {
+    return json(207, {
+      id,
+      filename,
+      file_removed: true,
+      body_strip_failed: err?.message ?? 'unknown error',
+    });
+  }
+
+  scheduleGitSync(`detach ${id}/${filename}${bodyReferenceRemoved ? ' (+ body)' : ''}`);
+
+  return json(200, {
+    id,
+    filename,
+    file_removed: true,
+    body_reference_removed: bodyReferenceRemoved,
+  });
+};
+
+/**
+ * Strip every `![alt](url)` line whose URL matches the given attachment path.
+ * Returns true if anything was removed. Collapses 3+ resulting blank lines.
+ */
+async function removeImageReferenceFromBody(id: string, url: string): Promise<boolean> {
+  const path = join(process.cwd(), 'cards', `${id}.md`);
+  const current = await readFile(path, 'utf8');
+  const escaped = url.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const re = new RegExp(`^!\\[[^\\]]*\\]\\(${escaped}\\)\\s*\\r?\\n?`, 'gm');
+  const next = current.replace(re, '').replace(/\n{3,}/g, '\n\n');
+  if (next === current) return false;
+  await writeFile(path, next, 'utf8');
+  return true;
+}
 
 /** Append text to the body of a card (the part after the closing `---`). */
 async function appendToCardBody(id: string, text: string): Promise<void> {
