@@ -16,7 +16,7 @@
  *   a typed object is fine; nothing's being written).
  */
 
-import { readFile, writeFile, readdir } from 'node:fs/promises';
+import { readFile, writeFile, readdir, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import matter from 'gray-matter';
 
@@ -208,4 +208,73 @@ function formatYamlScalar(value: unknown): string {
  */
 function isSafeId(id: string): boolean {
   return /^[a-z0-9][a-z0-9-]{0,99}$/i.test(id);
+}
+
+/**
+ * Spec for creating a new card from the agent API. `id`, `title`, `status`,
+ * and `owner` are required; the rest mirror the schema with sensible defaults.
+ * `created` defaults to today's YYYY-MM-DD if omitted. `body` is the markdown
+ * after the closing `---`.
+ */
+export interface NewCardSpec {
+  id: string;
+  title: string;
+  status: CardStatus;
+  owner: string;
+  collaborators?: string[];
+  due?: string | null;
+  created?: string | null;
+  completed?: string | null;
+  tags?: string[];
+  blocked_by?: string[];
+  order?: number | null;
+  body?: string;
+}
+
+/**
+ * Create a new card file. Returns the on-disk path. Throws with code='EEXIST'
+ * if a card with that id already exists (we never silently overwrite).
+ */
+export async function createCard(spec: NewCardSpec): Promise<string> {
+  if (!isSafeId(spec.id)) {
+    throw new Error(`Refused to create card with unsafe id: ${spec.id}`);
+  }
+  const path = join(CARDS_DIR, `${spec.id}.md`);
+  if (await fileExists(path)) {
+    const err = new Error(`Card already exists: ${spec.id}`) as NodeJS.ErrnoException;
+    err.code = 'EEXIST';
+    throw err;
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const lines: string[] = [];
+  lines.push('---');
+  lines.push(`id: ${spec.id}`);
+  lines.push(`title: ${formatYamlScalar(spec.title)}`);
+  lines.push(`status: ${spec.status}`);
+  lines.push(`owner: ${formatYamlScalar(spec.owner)}`);
+  lines.push(`collaborators: ${formatYamlValue(spec.collaborators ?? [])}`);
+  lines.push(`due: ${formatYamlValue(spec.due ?? null)}`);
+  lines.push(`created: ${spec.created ?? today}`);
+  if (spec.completed !== undefined) lines.push(`completed: ${formatYamlValue(spec.completed)}`);
+  lines.push(`tags: ${formatYamlValue(spec.tags ?? [])}`);
+  lines.push(`blocked_by: ${formatYamlValue(spec.blocked_by ?? [])}`);
+  if (spec.order !== undefined && spec.order !== null) lines.push(`order: ${spec.order}`);
+  lines.push('---');
+  lines.push('');
+  if (spec.body && spec.body.trim().length > 0) {
+    lines.push(spec.body.trimEnd());
+    lines.push('');
+  }
+  await writeFile(path, lines.join('\n'), 'utf8');
+  return path;
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await access(p);
+    return true;
+  } catch {
+    return false;
+  }
 }

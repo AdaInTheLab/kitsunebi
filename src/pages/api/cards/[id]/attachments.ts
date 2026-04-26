@@ -18,6 +18,7 @@ import type { APIRoute } from 'astro';
 import { mkdir, writeFile, access, readFile, unlink } from 'node:fs/promises';
 import { join, sep } from 'node:path';
 import { json, jsonError, requireSameOrigin } from '../../../../lib/api-helpers';
+import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -26,8 +27,8 @@ const ATTACHMENTS_DIR = join(process.cwd(), 'public', 'attachments');
 export const prerender = false;
 
 export const POST: APIRoute = async (ctx) => {
-  const reject = requireSameOrigin(ctx);
-  if (reject) return reject;
+  const auth = requireAuth(ctx, requireSameOrigin);
+  if (auth instanceof Response) return auth;
 
   const id = ctx.params.id;
   if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,99}$/i.test(id)) {
@@ -101,7 +102,8 @@ export const POST: APIRoute = async (ctx) => {
     }
   }
 
-  scheduleGitSync(`attach ${id}/${outName}${shouldAppend ? ' (+ body)' : ''}`);
+  const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
+  scheduleGitSync(`attach ${id}/${outName}${shouldAppend ? ' (+ body)' : ''}${agentSuffix}`);
 
   return json(201, {
     id,
@@ -121,8 +123,8 @@ export const POST: APIRoute = async (ctx) => {
  * Used by the ✕ button on board-view thumbnails.
  */
 export const DELETE: APIRoute = async (ctx) => {
-  const reject = requireSameOrigin(ctx);
-  if (reject) return reject;
+  const auth = requireAuth(ctx, requireSameOrigin);
+  if (auth instanceof Response) return auth;
 
   const id = ctx.params.id;
   if (typeof id !== 'string' || !/^[a-z0-9][a-z0-9-]{0,99}$/i.test(id)) {
@@ -162,7 +164,8 @@ export const DELETE: APIRoute = async (ctx) => {
     });
   }
 
-  scheduleGitSync(`detach ${id}/${filename}${bodyReferenceRemoved ? ' (+ body)' : ''}`);
+  const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
+  scheduleGitSync(`detach ${id}/${filename}${bodyReferenceRemoved ? ' (+ body)' : ''}${agentSuffix}`);
 
   return json(200, {
     id,

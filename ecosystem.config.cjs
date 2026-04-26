@@ -46,6 +46,20 @@ try {
   );
 }
 
+// Per-agent bearer tokens for the Phase 3 agent API. Same on-disk-secret
+// pattern as the tunnel token: a sibling file (mode 600), so this committed
+// ecosystem config stays safe to publish. Format: comma-separated
+// `name:secret` pairs, e.g. `koda:abc...,sage:def...,luna:ghi...`. Empty /
+// missing file is fine — the API just won't accept agent tokens, browser
+// auth still works.
+const agentTokensPath = path.join(process.env.HOME, '.kitsunebi-agent-tokens');
+let agentTokens = '';
+try {
+  agentTokens = fs.readFileSync(agentTokensPath, 'utf8').trim();
+} catch {
+  // No agents provisioned yet. Not an error.
+}
+
 module.exports = {
   apps: [
     {
@@ -72,6 +86,14 @@ module.exports = {
         // if you want to test mutations without filling git history.
         // Leave unset (or any other value) to enable.
         // KITSUNEBI_GIT_SYNC: 'off',
+
+        // Per-agent bearer tokens for the Phase 3 agent API. See sibling
+        // file ~/.kitsunebi-agent-tokens (mode 600).
+        KITSUNEBI_AGENT_TOKENS: agentTokens,
+
+        // Auto-archive sweep threshold (default 14). Cards in `done` for
+        // ≥ this many days move to `archived` on the next page load.
+        // KITSUNEBI_ARCHIVE_DAYS: '14',
       },
 
       max_restarts: 10,

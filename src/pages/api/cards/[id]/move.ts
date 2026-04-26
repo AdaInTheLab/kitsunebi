@@ -22,6 +22,7 @@
 import type { APIRoute } from 'astro';
 import { patchCardFrontmatter, readCard, type CardStatus, type CardPatch } from '../../../../lib/cards-fs';
 import { json, jsonError, readJson, requireSameOrigin } from '../../../../lib/api-helpers';
+import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
 
 const VALID_STATUSES: ReadonlySet<CardStatus> = new Set([
@@ -43,8 +44,8 @@ interface MoveBody {
 export const prerender = false;
 
 export const POST: APIRoute = async (ctx) => {
-  const reject = requireSameOrigin(ctx);
-  if (reject) return reject;
+  const auth = requireAuth(ctx, requireSameOrigin);
+  if (auth instanceof Response) return auth;
 
   const body = await readJson<MoveBody>(ctx);
   if (body instanceof Response) return body;
@@ -112,6 +113,7 @@ export const POST: APIRoute = async (ctx) => {
   else if (statusChanged)             summary = `move ${id} → ${body.status}`;
   else if (orderChanged)              summary = `reorder ${id} (#${body.order})`;
   else                                summary = `touch ${id}`;
+  if (auth.agent) summary += ` (${auth.agent})`;
   scheduleGitSync(summary);
 
   // Build the response from the *patched* state. `current.frontmatter` has

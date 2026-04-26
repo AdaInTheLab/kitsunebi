@@ -9,8 +9,9 @@
  */
 
 import type { APIRoute } from 'astro';
-import { patchCardFrontmatter, type CardPatch } from '../../../../lib/cards-fs';
+import { patchCardFrontmatter, readCard, type CardPatch } from '../../../../lib/cards-fs';
 import { json, jsonError, readJson, requireSameOrigin } from '../../../../lib/api-helpers';
+import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
 
 const PATCHABLE_KEYS = ['title', 'owner', 'collaborators', 'tags', 'due', 'blocked_by'] as const;
@@ -18,9 +19,32 @@ type PatchableKey = (typeof PATCHABLE_KEYS)[number];
 
 export const prerender = false;
 
+export const GET: APIRoute = async (ctx) => {
+  const auth = requireAuth(ctx, requireSameOrigin);
+  if (auth instanceof Response) return auth;
+
+  const id = ctx.params.id;
+  if (typeof id !== 'string' || id.length === 0) {
+    return jsonError(400, 'missing_id', 'Path parameter "id" is required.');
+  }
+
+  try {
+    const card = await readCard(id);
+    return json(200, {
+      frontmatter: normalizeFrontmatter(card.frontmatter),
+      body: card.body,
+    });
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return jsonError(404, 'not_found', `No card with id "${id}".`);
+    }
+    return jsonError(500, 'read_failed', err?.message ?? 'Failed to read card.');
+  }
+};
+
 export const PATCH: APIRoute = async (ctx) => {
-  const reject = requireSameOrigin(ctx);
-  if (reject) return reject;
+  const auth = requireAuth(ctx, requireSameOrigin);
+  if (auth instanceof Response) return auth;
 
   const body = await readJson<Record<string, unknown>>(ctx);
   if (body instanceof Response) return body;
@@ -68,7 +92,20 @@ export const PATCH: APIRoute = async (ctx) => {
     return jsonError(500, 'write_failed', err?.message ?? 'Failed to write card.');
   }
 
-  scheduleGitSync(`patch ${id}: ${Object.keys(patch).join(', ')}`);
+  const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
+  scheduleGitSync(`patch ${id}: ${Object.keys(patch).join(', ')}${agentSuffix}`);
 
   return json(200, { id, patched: Object.keys(patch), ignored });
 };
+
+/**
+ * Convert any Date objects to YYYY-MM-DD strings so JSON output stays stable
+ * across YAML quirks (gray-matter auto-parses unquoted ISO dates).
+ */
+function normalizeFrontmatter(fm: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fm)) {
+    out[k] = v instanceof Date ? v.toISOString().split('T')[0] : v;
+  }
+  return out;
+}
