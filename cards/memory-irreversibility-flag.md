@@ -1,6 +1,6 @@
 ---
 id: memory-irreversibility-flag
-title: Compactor irreversibility flag + dropped_sample3
+title: Compactor irreversibility flag + dropped_sample
 status: in_progress
 owner: sage
 collaborators: [claude]
