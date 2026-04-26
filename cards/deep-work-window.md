@@ -8,6 +8,7 @@ due: null
 created: 2026-04-24
 tags: [openhearth, design, heartbeat, luna-wishlist]
 blocked_by: []
+order: -1776988800001
 ---
 
 Optional mode where an agent batches work quietly for a set window, then emits **one concise summary** at the end. Anti-streaming for focused tasks — no noisy progress pings, just "here's what got done."

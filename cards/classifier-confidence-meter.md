@@ -8,6 +8,7 @@ due: null
 created: 2026-04-24
 tags: [openhearth, observability, luna-wishlist]
 blocked_by: [wake-reason-surfacing]
+order: -1776988800000
 ---
 
 When the quiet-hours urgency classifier fires (AI-inferred "this looks urgent"), surface its confidence score alongside the wake reason. Lets the agent (and Ada) calibrate the threshold over time — is 0.7 too lenient? Too strict?
