@@ -24,6 +24,7 @@ import { patchCardFrontmatter, readCard, type CardStatus, type CardPatch } from 
 import { json, jsonError, readJson, requireSameOrigin } from '../../../../lib/api-helpers';
 import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
+import { notifyCardChangeBackground } from '../../../../lib/mesh-notify';
 
 const VALID_STATUSES: ReadonlySet<CardStatus> = new Set([
   'backlog',
@@ -115,6 +116,20 @@ export const POST: APIRoute = async (ctx) => {
   else                                summary = `touch ${id}`;
   if (auth.agent) summary += ` (${auth.agent})`;
   scheduleGitSync(summary);
+
+  // Only notify on column changes — pure intra-column reorders are noisy
+  // and not action-worthy for collaborators.
+  if (statusChanged) {
+    notifyCardChangeBackground({
+      cardId: id,
+      actor: auth.agent,
+      event: {
+        type: 'move',
+        toStatus: body.status,
+        title: current.frontmatter.title ?? id,
+      },
+    });
+  }
 
   // Build the response from the *patched* state. `current.frontmatter` has
   // dates as Date objects (gray-matter auto-parses unquoted YYYY-MM-DD), so

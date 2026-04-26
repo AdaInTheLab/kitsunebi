@@ -13,6 +13,7 @@ import { patchCardFrontmatter, readCard, type CardPatch } from '../../../../lib/
 import { json, jsonError, readJson, requireSameOrigin } from '../../../../lib/api-helpers';
 import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
+import { notifyCardChangeBackground } from '../../../../lib/mesh-notify';
 
 const PATCHABLE_KEYS = ['title', 'owner', 'collaborators', 'tags', 'due', 'blocked_by'] as const;
 type PatchableKey = (typeof PATCHABLE_KEYS)[number];
@@ -93,9 +94,23 @@ export const PATCH: APIRoute = async (ctx) => {
   }
 
   const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
-  scheduleGitSync(`patch ${id}: ${Object.keys(patch).join(', ')}${agentSuffix}`);
+  const patchedKeys = Object.keys(patch);
+  scheduleGitSync(`patch ${id}: ${patchedKeys.join(', ')}${agentSuffix}`);
 
-  return json(200, { id, patched: Object.keys(patch), ignored });
+  // Re-read to get the post-patch title for the notification text.
+  let title = id;
+  try {
+    title = (await readCard(id)).frontmatter.title ?? id;
+  } catch {
+    // fall through with id as title
+  }
+  notifyCardChangeBackground({
+    cardId: id,
+    actor: auth.agent,
+    event: { type: 'patch', fields: patchedKeys, title },
+  });
+
+  return json(200, { id, patched: patchedKeys, ignored });
 };
 
 /**

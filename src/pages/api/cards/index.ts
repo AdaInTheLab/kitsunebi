@@ -28,6 +28,7 @@ import {
 } from '../../../lib/api-helpers';
 import { requireAuth } from '../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../lib/git-sync';
+import { notifyCardChangeBackground } from '../../../lib/mesh-notify';
 
 const VALID_STATUSES: ReadonlySet<CardStatus> = new Set([
   'backlog',
@@ -130,6 +131,12 @@ export const POST: APIRoute = async (ctx) => {
 
   const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
   scheduleGitSync(`create ${spec.id}: ${spec.title}${agentSuffix}`);
+
+  notifyCardChangeBackground({
+    cardId: spec.id,
+    actor: auth.agent,
+    event: { type: 'create', title: spec.title },
+  });
 
   // Read back so the response reflects the on-disk state (including the
   // defaulted `created` date when the caller didn't supply one).
