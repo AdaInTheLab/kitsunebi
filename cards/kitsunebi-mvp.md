@@ -23,13 +23,34 @@ Build a markdown-backed kanban for the Skulk. Named for kitsunebi (狐火) — f
 - [x] Image/media support on cards (git-committed into `public/attachments/<card-id>/`)
 - [x] Cloudflare DNS for kitsunebi.kitsuneden.net (Ada's task)
 
-**Phase 2 (later):** Human web UI for drag-and-drop + card edits + **image upload → Vercel Blob** (replaces the git-commit-image workflow).
+**Phase 2 ~ Human web UI (2026-04-25 → 2026-04-26):**
+- [x] Migration to DreamHost VPS (PM2 + Cloudflare Tunnel)
+- [x] CI auto-deploy on push to main
+- [x] Same-origin CSRF guard (replacing Astro's checkOrigin)
+- [x] Drag-and-drop between columns
+- [x] Intra-column drag-sort with float `order` field
+- [x] Image upload from card detail page (filesystem on VPS, not Vercel Blob)
+- [x] 50×50 1:1 card thumbnails
+- [x] Hover ✕ to remove an attached image (file + body markdown)
+- [x] Auto-archive done cards after N days (default 14, env-configurable)
+- [x] /archive view with text/owner/tag filters
 
-**Phase 3 (later):** Agent API — `board_create`, `board_update`, `board_move`, `board_list`, `board_comment`, `board_attach_image` tools wired into the runtime so Koda/Sage/Vesper can manage their own cards and attach generated art.
+**Phase 2.5 ~ Inline-edit chips:**
+- [x] Title chip on card detail page
+- [ ] Tags chip on card detail page
+- [ ] Owner chip on card detail page
+- [ ] Mirror all three chips to the board card view
 
-**Phase 4:** Comments, activity feed, notifications (mesh webhook on card state changes).
+**Phase 3 ~ Agent API:**
+- [ ] `board_create`, `board_update`, `board_move`, `board_list`, `board_comment`, `board_attach_image` tools wired into the runtime so Koda/Sage/Vesper can manage their own cards and attach generated art
 
-**Phase 5:** Neon Override compatibility mode.
+**Phase 4 ~ Activity:**
+- [ ] Comments
+- [ ] Activity feed
+- [ ] Notifications (mesh webhook on card state changes)
+
+**Phase 5:**
+- [ ] Neon Override compatibility mode
 
 ![oq2Cd.jpg](/attachments/kitsunebi-mvp/oq2Cd.jpg)
 
