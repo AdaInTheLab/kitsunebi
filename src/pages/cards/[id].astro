@@ -32,6 +32,21 @@ const completed = data.completed ? new Date(data.completed) : null;
 
 const fmt = (d: Date | null) =>
   d ? d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : null;
+
+/** Friendly comment timestamp: "Apr 26, 8:12 PM" if same year, else with year. */
+const fmtCommentTime = (iso: string): string => {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+};
 ---
 
 <Layout title={`${data.title} — kitsunebi`} description={`${statusLabels[data.status]} · owned by ${data.owner}`}>
@@ -119,7 +134,7 @@ const fmt = (d: Date | null) =>
             <li class="comment" data-comment-id={c.id}>
               <header class="comment-meta">
                 <a href={`/people/${c.author}/`} class="comment-author">🦊 {c.author}</a>
-                <time class="comment-time" datetime={c.createdAt}>{c.createdAt}</time>
+                <time class="comment-time" datetime={c.createdAt}>{fmtCommentTime(c.createdAt)}</time>
               </header>
               <div class="comment-body">{c.text}</div>
             </li>
@@ -136,7 +151,7 @@ const fmt = (d: Date | null) =>
           ></textarea>
           <div class="comment-form-row">
             <label class="comment-author-field">
-              as <input type="text" name="author" placeholder="ada" maxlength="60" />
+              as <input type="text" name="author" placeholder="your name" maxlength="60" data-comment-author-input />
             </label>
             <button type="submit">Post</button>
             <span class="comment-form-status" data-comment-status></span>
@@ -501,56 +516,34 @@ const fmt = (d: Date | null) =>
   </script>
 
   <script>
-    // Comment form: POST /api/cards/:id/comments, append the response to
-    // the list, clear the textarea. Server-side rendering already drew the
-    // existing comments; this only handles the new-comment add path.
+    // Comment form: POST /api/cards/:id/comments, then reload so the new
+    // comment lands via SSR with the same scoped CSS + formatted timestamp
+    // as the existing ones. Mirrors the attach-image upload pattern.
+    //
+    // Persists the author name in localStorage so once a user types it
+    // (or pastes their agent name), it sticks across page loads.
+    const AUTHOR_KEY = 'kitsunebi:comment-author';
     const commentSection = document.querySelector<HTMLElement>('section.comments');
     if (commentSection) {
       const cardId = commentSection.dataset.cardId ?? '';
       const form = commentSection.querySelector<HTMLFormElement>('[data-comment-form]');
-      const list = commentSection.querySelector<HTMLOListElement>('[data-comment-list]');
       const status = commentSection.querySelector<HTMLElement>('[data-comment-status]');
-      const countEl = commentSection.querySelector<HTMLElement>('.comments-count');
+      const authorInput = commentSection.querySelector<HTMLInputElement>('[data-comment-author-input]');
+
+      // Pre-fill the author field from the last successful post.
+      if (authorInput) {
+        try {
+          const saved = window.localStorage.getItem(AUTHOR_KEY) ?? '';
+          if (saved) authorInput.value = saved;
+        } catch {
+          // localStorage can throw in private mode / sandboxed contexts; non-fatal.
+        }
+      }
 
       const showStatus = (msg: string, kind: 'work' | 'ok' | 'err' | 'idle' = 'idle') => {
         if (!status) return;
         status.textContent = msg;
         status.dataset.kind = kind;
-      };
-
-      const appendComment = (c: { id: string; author: string; text: string; createdAt: string }) => {
-        if (!list) return;
-        const li = document.createElement('li');
-        li.className = 'comment';
-        li.dataset.commentId = c.id;
-
-        const header = document.createElement('header');
-        header.className = 'comment-meta';
-
-        const a = document.createElement('a');
-        a.href = `/people/${encodeURIComponent(c.author)}/`;
-        a.className = 'comment-author';
-        a.textContent = `🦊 ${c.author}`;
-        header.appendChild(a);
-
-        const time = document.createElement('time');
-        time.className = 'comment-time';
-        time.dateTime = c.createdAt;
-        time.textContent = c.createdAt;
-        header.appendChild(time);
-
-        const body = document.createElement('div');
-        body.className = 'comment-body';
-        body.textContent = c.text;
-
-        li.appendChild(header);
-        li.appendChild(body);
-        list.appendChild(li);
-
-        if (countEl) {
-          const next = list.querySelectorAll('.comment').length;
-          countEl.textContent = String(next);
-        }
       };
 
       form?.addEventListener('submit', async (e) => {
@@ -574,14 +567,14 @@ const fmt = (d: Date | null) =>
             const errBody = await r.text();
             throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
           }
-          const data = await r.json();
-          if (data?.comment) appendComment(data.comment);
-          form.reset();
-          showStatus('', 'idle');
+          if (author) {
+            try { window.localStorage.setItem(AUTHOR_KEY, author); } catch { /* non-fatal */ }
+          }
+          showStatus('Posted — refreshing…', 'ok');
+          window.location.reload();
         } catch (err) {
           console.error('comment post failed:', err);
           showStatus(err instanceof Error ? err.message : 'post failed', 'err');
-        } finally {
           if (submitBtn) submitBtn.disabled = false;
         }
       });
