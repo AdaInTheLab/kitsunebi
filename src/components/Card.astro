@@ -39,10 +39,14 @@ const dueClass = daysUntilDue === null
 >
   <header class="card-head">
     <h3 class="card-title">
-      <a href={`/cards/${data.id}/`}>{data.title}</a>
+      <a href={`/cards/${data.id}/`} class="card-title-link">{data.title}</a>
+      <button class="card-title-edit" type="button" aria-label="Edit title">✎</button>
     </h3>
     <div class="card-meta">
-      <span class="owner">🦊 {data.owner}</span>
+      <span class="card-owner-chip" data-owner={data.owner}>
+        <span class="owner">🦊 {data.owner}</span>
+        <button class="card-owner-edit" type="button" aria-label="Edit owner">✎</button>
+      </span>
       {due && (
         <span class={`due ${dueClass}`} title={data.due ?? undefined}>
           {due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
@@ -61,11 +65,15 @@ const dueClass = daysUntilDue === null
     <Content />
   </div>
 
-  {data.tags.length > 0 && (
-    <footer class="card-foot">
-      {data.tags.map((t) => <a href={`/tags/${t}/`} class="tag">#{t}</a>)}
-    </footer>
-  )}
+  <footer class="card-foot">
+    {data.tags.map((t) => (
+      <span class="card-tag-chip" data-tag={t}>
+        <a href={`/tags/${t}/`} class="tag">#{t}</a>
+        <button class="card-tag-remove" type="button" aria-label={`Remove tag ${t}`}>✕</button>
+      </span>
+    ))}
+    <button class="card-tag-add" type="button" aria-label="Add a tag">+ tag</button>
+  </footer>
 </article>
 
 <style>
@@ -350,4 +358,432 @@ const dueClass = daysUntilDue === null
   .tag:hover {
     color: var(--flame);
   }
+
+  /* ---------- Inline-edit chips on board cards ---------- */
+  /* Same shape as detail-page chips: hover reveals an edit/remove affordance,
+     click swaps for an input. Distinct class names so layout/sizing stays
+     small enough for the board context. */
+
+  .card-title {
+    display: flex;
+    align-items: baseline;
+    gap: 0.25rem;
+  }
+
+  .card-title-link {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .card-title-edit,
+  .card-owner-edit,
+  .card-tag-remove {
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 0.62rem;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
+  }
+
+  .card:hover .card-title-edit,
+  .card:hover .card-owner-edit,
+  .card-title-edit:focus-visible,
+  .card-owner-edit:focus-visible {
+    opacity: 1;
+  }
+
+  .card-title-edit:hover,
+  .card-title-edit:focus-visible,
+  .card-owner-edit:hover,
+  .card-owner-edit:focus-visible {
+    color: var(--flame);
+    background: var(--flame-glow);
+    outline: none;
+  }
+
+  .card-title.is-editing .card-title-link,
+  .card-title.is-editing .card-title-edit {
+    display: none;
+  }
+
+  .card-title-input {
+    flex: 1;
+    background: var(--bg-0);
+    border: 1px solid var(--flame);
+    border-radius: 4px;
+    padding: 0.05rem 0.4rem;
+    font-family: var(--font-serif);
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text);
+    outline: none;
+    box-shadow: 0 0 14px -6px var(--flame-glow);
+  }
+
+  .card-owner-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    transition: opacity 150ms ease;
+  }
+
+  .card-owner-chip.saving,
+  .card-title.saving {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .card-owner-chip.is-editing .owner,
+  .card-owner-chip.is-editing .card-owner-edit {
+    display: none;
+  }
+
+  .card-owner-input {
+    background: var(--bg-0);
+    border: 1px solid var(--flame);
+    border-radius: 999px;
+    padding: 0.02rem 0.45rem;
+    font: inherit;
+    font-size: 0.74rem;
+    color: var(--text);
+    outline: none;
+    width: 6rem;
+    box-shadow: 0 0 12px -6px var(--flame-glow);
+  }
+
+  .card-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.05rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 0 0.05rem 0 0.2rem;
+    transition: border-color 150ms ease, background 150ms ease, opacity 150ms ease;
+  }
+
+  .card:hover .card-tag-chip:hover {
+    border-color: var(--border);
+    background: var(--bg-0);
+  }
+
+  .card-tag-chip.saving {
+    opacity: 0.45;
+    pointer-events: none;
+  }
+
+  .card:hover .card-tag-chip:hover .card-tag-remove,
+  .card-tag-remove:focus-visible {
+    opacity: 1;
+  }
+
+  .card-tag-remove:hover,
+  .card-tag-remove:focus-visible {
+    color: #fff;
+    background: var(--flame-blocked);
+    outline: none;
+  }
+
+  .card-tag-add {
+    background: transparent;
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    padding: 0 0.45rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--text-soft);
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 120ms ease, border-color 150ms ease, color 150ms ease, background 150ms ease;
+  }
+
+  .card:hover .card-tag-add,
+  .card-tag-add:focus-visible {
+    opacity: 1;
+  }
+
+  .card-tag-add:hover,
+  .card-tag-add:focus-visible {
+    border-color: var(--flame);
+    color: var(--flame);
+    background: var(--flame-glow);
+    outline: none;
+  }
+
+  .card-tag-input {
+    background: var(--bg-0);
+    border: 1px solid var(--flame);
+    border-radius: 999px;
+    padding: 0 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    color: var(--text);
+    outline: none;
+    width: 7rem;
+    box-shadow: 0 0 12px -6px var(--flame-glow);
+  }
+
+  /* When a card has zero tags, the footer shrinks to just the +tag button.
+     Hide the dashed border so the empty footer doesn't draw attention. */
+  .card-foot:has(.card-tag-chip) {
+    /* keep the dashed border-top defined above */
+  }
+
+  .card-foot:not(:has(.card-tag-chip)) {
+    border-top: none;
+    margin-top: 0.4rem;
+    padding-top: 0;
+  }
 </style>
+
+<script>
+  // Inline-edit chips on board cards (also active on /archive since both
+  // pages render via Card.astro). Mirrors the detail-page behavior at a
+  // smaller scale: hover reveals an affordance, click swaps for an input,
+  // Enter/blur saves, Escape cancels. PATCHes /api/cards/:id with the
+  // changed field; on success the DOM is patched in place — no page
+  // reload, so drag-drop and filter state survive the edit.
+
+  const CHIP_SELECTORS = [
+    '.card-title-edit',
+    '.card-owner-edit',
+    '.card-tag-remove',
+    '.card-tag-add',
+    '.card-title-input',
+    '.card-owner-input',
+    '.card-tag-input',
+  ].join(', ');
+
+  // Cards have draggable=true, so a mousedown anywhere inside would normally
+  // start a drag. Block that for chip controls (mirrors the thumbnail-remove
+  // pattern). Capture-phase so we beat the document-level dragstart handler
+  // in index.astro.
+  document.addEventListener(
+    'mousedown',
+    (e) => {
+      if ((e.target as HTMLElement).closest(CHIP_SELECTORS)) e.stopPropagation();
+    },
+    true,
+  );
+  document.addEventListener(
+    'dragstart',
+    (e) => {
+      if ((e.target as HTMLElement).closest(CHIP_SELECTORS)) e.preventDefault();
+    },
+    true,
+  );
+
+  async function patchCard(cardId: string, body: Record<string, unknown>): Promise<boolean> {
+    try {
+      const r = await fetch(`/api/cards/${encodeURIComponent(cardId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const errBody = await r.text();
+        throw new Error(`HTTP ${r.status}: ${errBody.slice(0, 200)}`);
+      }
+      return true;
+    } catch (err) {
+      console.error('card patch failed:', err);
+      alert(`Couldn't save: ${err instanceof Error ? err.message : 'unknown error'}`);
+      return false;
+    }
+  }
+
+  // ---------- Title ----------
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.card-title-edit');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const titleEl = btn.closest<HTMLElement>('.card-title');
+    const link = titleEl?.querySelector<HTMLAnchorElement>('.card-title-link');
+    const card = btn.closest<HTMLElement>('.card');
+    if (!titleEl || !link || !card) return;
+    const cardId = card.dataset.cardId ?? '';
+    const current = link.textContent?.trim() ?? '';
+
+    titleEl.classList.add('is-editing');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'card-title-input';
+    input.value = current;
+    input.maxLength = 200;
+    titleEl.appendChild(input);
+    input.focus();
+    input.select();
+
+    let dispatched = false;
+    const finish = async (cancelled: boolean) => {
+      if (dispatched) return;
+      dispatched = true;
+      const next = input.value.trim().replace(/\s+/g, ' ');
+      input.remove();
+      titleEl.classList.remove('is-editing');
+      if (cancelled || !next || next === current) return;
+
+      titleEl.classList.add('saving');
+      const ok = await patchCard(cardId, { title: next });
+      if (ok) link.textContent = next;
+      titleEl.classList.remove('saving');
+    };
+    input.addEventListener('keydown', (ke) => {
+      if (ke.key === 'Enter') { ke.preventDefault(); finish(false); }
+      else if (ke.key === 'Escape') { ke.preventDefault(); finish(true); }
+    });
+    input.addEventListener('blur', () => finish(false));
+  });
+
+  // ---------- Owner ----------
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.card-owner-edit');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const chip = btn.closest<HTMLElement>('.card-owner-chip');
+    const ownerSpan = chip?.querySelector<HTMLElement>('.owner');
+    const card = btn.closest<HTMLElement>('.card');
+    if (!chip || !ownerSpan || !card) return;
+    const cardId = card.dataset.cardId ?? '';
+    const current = chip.dataset.owner ?? '';
+
+    chip.classList.add('is-editing');
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'card-owner-input';
+    input.value = current;
+    input.maxLength = 60;
+    chip.appendChild(input);
+    input.focus();
+    input.select();
+
+    let dispatched = false;
+    const finish = async (cancelled: boolean) => {
+      if (dispatched) return;
+      dispatched = true;
+      const next = input.value.trim();
+      input.remove();
+      chip.classList.remove('is-editing');
+      if (cancelled || !next || next === current) return;
+
+      chip.classList.add('saving');
+      const ok = await patchCard(cardId, { owner: next });
+      if (ok) {
+        ownerSpan.textContent = `🦊 ${next}`;
+        chip.dataset.owner = next;
+        card.dataset.owner = next;
+      }
+      chip.classList.remove('saving');
+    };
+    input.addEventListener('keydown', (ke) => {
+      if (ke.key === 'Enter') { ke.preventDefault(); finish(false); }
+      else if (ke.key === 'Escape') { ke.preventDefault(); finish(true); }
+    });
+    input.addEventListener('blur', () => finish(false));
+  });
+
+  // ---------- Tag remove ----------
+  document.addEventListener('click', async (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.card-tag-remove');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const chip = btn.closest<HTMLElement>('.card-tag-chip');
+    const card = btn.closest<HTMLElement>('.card');
+    const tag = chip?.dataset.tag;
+    if (!chip || !card || !tag) return;
+    const cardId = card.dataset.cardId ?? '';
+
+    const tags = (card.dataset.tags ?? '').split(',').filter(Boolean);
+    const next = tags.filter((t) => t !== tag);
+
+    chip.classList.add('saving');
+    const ok = await patchCard(cardId, { tags: next });
+    if (ok) {
+      chip.remove();
+      card.dataset.tags = next.join(',');
+    } else {
+      chip.classList.remove('saving');
+    }
+  });
+
+  // ---------- Tag add ----------
+  function makeBoardTagChip(tag: string): HTMLElement {
+    const span = document.createElement('span');
+    span.className = 'card-tag-chip';
+    span.dataset.tag = tag;
+
+    const a = document.createElement('a');
+    a.href = `/tags/${encodeURIComponent(tag)}/`;
+    a.className = 'tag';
+    a.textContent = `#${tag}`;
+    span.appendChild(a);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'card-tag-remove';
+    removeBtn.setAttribute('aria-label', `Remove tag ${tag}`);
+    removeBtn.textContent = '✕';
+    span.appendChild(removeBtn);
+
+    return span;
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.card-tag-add');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const foot = btn.closest<HTMLElement>('.card-foot');
+    const card = btn.closest<HTMLElement>('.card');
+    if (!foot || !card) return;
+    if (foot.querySelector('.card-tag-input')) return;
+    const cardId = card.dataset.cardId ?? '';
+
+    btn.style.display = 'none';
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'card-tag-input';
+    input.placeholder = 'tag-name';
+    input.maxLength = 60;
+    foot.insertBefore(input, btn);
+    input.focus();
+
+    let dispatched = false;
+    const finish = async (cancelled: boolean) => {
+      if (dispatched) return;
+      dispatched = true;
+      const next = input.value.trim();
+      input.remove();
+      btn.style.display = '';
+      if (cancelled || !next) return;
+
+      const tags = (card.dataset.tags ?? '').split(',').filter(Boolean);
+      if (tags.includes(next)) return;
+      const updated = [...tags, next];
+
+      const ok = await patchCard(cardId, { tags: updated });
+      if (ok) {
+        foot.insertBefore(makeBoardTagChip(next), btn);
+        card.dataset.tags = updated.join(',');
+      }
+    };
+    input.addEventListener('keydown', (ke) => {
+      if (ke.key === 'Enter') { ke.preventDefault(); finish(false); }
+      else if (ke.key === 'Escape') { ke.preventDefault(); finish(true); }
+    });
+    input.addEventListener('blur', () => finish(false));
+  });
+</script>
