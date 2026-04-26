@@ -4,6 +4,11 @@ import { readdirSync } from 'node:fs';
 import Layout from '../layouts/Layout.astro';
 import Column from '../components/Column.astro';
 import Flame from '../components/Flame.astro';
+import { maybeSweepArchived } from '../lib/archive-sweep';
+
+// Auto-archive sweep — debounced 1h via stamp file, no-op on most page loads.
+// Runs before getCollection so any cards moved to `archived` reflect immediately.
+await maybeSweepArchived();
 
 const allCards = await getCollection('cards');
 
@@ -93,6 +98,8 @@ const allPeople = [...peopleSet].sort();
         <span>{totalActive} active</span>
         <span class="dot">·</span>
         <span>{cardsByStatus.done.length} shipped</span>
+        <span class="dot">·</span>
+        <a href="/archive/" class="archive-link">archive →</a>
       </div>
       {ownerList.length > 0 && (
         <div class="owners" aria-label="Active cards by owner">
@@ -632,6 +639,18 @@ const allPeople = [...peopleSet].sort();
 
   .dot {
     opacity: 0.5;
+  }
+
+  .archive-link {
+    color: var(--text-soft);
+    text-decoration: none;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .archive-link:hover {
+    color: var(--flame-archived, var(--flame-done));
+    border-bottom-color: currentColor;
   }
 
   .owners {

@@ -1,0 +1,290 @@
+---
+import { getCollection } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import Card from '../components/Card.astro';
+import Flame from '../components/Flame.astro';
+import { maybeSweepArchived } from '../lib/archive-sweep';
+
+await maybeSweepArchived();
+
+const all = await getCollection('cards');
+const archived = all
+  .filter((c) => c.data.status === 'archived')
+  .sort((a, b) => {
+    // Newest-completed-first — most recently archived at the top.
+    const aMs = a.data.completed ? Date.parse(a.data.completed) : 0;
+    const bMs = b.data.completed ? Date.parse(b.data.completed) : 0;
+    return bMs - aMs;
+  });
+
+const peopleSet = new Set<string>();
+for (const c of archived) {
+  peopleSet.add(c.data.owner);
+  for (const p of c.data.collaborators) peopleSet.add(p);
+}
+const allPeople = [...peopleSet].sort();
+
+const tagSet = new Set<string>();
+for (const c of archived) for (const t of c.data.tags) tagSet.add(t);
+const allTags = [...tagSet].sort();
+
+const archiveDays = Number(import.meta.env.KITSUNEBI_ARCHIVE_DAYS ?? process.env.KITSUNEBI_ARCHIVE_DAYS ?? 14);
+---
+
+<Layout title="Archive — kitsunebi" description={`${archived.length} archived cards`}>
+  <main>
+    <nav class="breadcrumb">
+      <a href="/">← back to board</a>
+    </nav>
+
+    <header class="archive-head">
+      <div class="brand">
+        <Flame size={24} class="archive-flame" />
+        <h1>Archive</h1>
+      </div>
+      <p class="lede">
+        {archived.length === 0
+          ? `No archived cards yet. Cards in done for ${archiveDays}+ days move here automatically.`
+          : `${archived.length} card${archived.length === 1 ? '' : 's'} — anything in done for ${archiveDays}+ days lands here.`}
+      </p>
+    </header>
+
+    {archived.length > 0 && (
+      <>
+        <div class="filter-bar" role="search" aria-label="Filter archived cards">
+          <input
+            type="search"
+            id="filter-search"
+            placeholder="filter by text (press /)"
+            aria-label="Filter archived cards by text"
+          />
+          {allPeople.length > 0 && (
+            <div class="filter-pills">
+              <button type="button" class="filter-pill is-active" data-filter="person" data-value="">all people</button>
+              {allPeople.map((p) => (
+                <button type="button" class="filter-pill" data-filter="person" data-value={p}>🦊 {p}</button>
+              ))}
+            </div>
+          )}
+          {allTags.length > 0 && (
+            <div class="filter-pills tag-pills">
+              <button type="button" class="filter-pill is-active" data-filter="tag" data-value="">all tags</button>
+              {allTags.map((t) => (
+                <button type="button" class="filter-pill tag-filter" data-filter="tag" data-value={t}>#{t}</button>
+              ))}
+            </div>
+          )}
+          <button type="button" class="filter-clear" data-clear>clear</button>
+        </div>
+
+        <div class="archive-list">
+          {archived.map((card, i) => <Card card={card} index={i} />)}
+        </div>
+      </>
+    )}
+  </main>
+
+  <script>
+    // Client-side filter logic mirrors the board's. Targets the same .card
+    // markup, so filter behavior stays consistent across the two views.
+    type FilterState = { person: string; tag: string; text: string };
+    const state: FilterState = { person: '', tag: '', text: '' };
+
+    const searchInput = document.getElementById('filter-search') as HTMLInputElement | null;
+    const clearBtn = document.querySelector<HTMLButtonElement>('[data-clear]');
+
+    function applyFilters() {
+      const text = state.text.trim().toLowerCase();
+      document.querySelectorAll<HTMLElement>('.card').forEach((card) => {
+        const cardText = card.textContent?.toLowerCase() ?? '';
+        const owner = card.dataset.owner ?? '';
+        const collabs = (card.dataset.collaborators ?? '').split(',').filter(Boolean);
+        const tags = (card.dataset.tags ?? '').split(',').filter(Boolean);
+
+        const personOk = !state.person || owner === state.person || collabs.includes(state.person);
+        const tagOk = !state.tag || tags.includes(state.tag);
+        const textOk = !text || cardText.includes(text);
+
+        card.style.display = personOk && tagOk && textOk ? '' : 'none';
+      });
+    }
+
+    function setActive(filterGroup: string, value: string) {
+      document.querySelectorAll<HTMLButtonElement>(`[data-filter="${filterGroup}"]`).forEach((btn) => {
+        btn.classList.toggle('is-active', btn.dataset.value === value);
+      });
+    }
+
+    document.addEventListener('click', (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('[data-filter]');
+      if (btn) {
+        const group = btn.dataset.filter as 'person' | 'tag';
+        const value = btn.dataset.value ?? '';
+        state[group] = value;
+        setActive(group, value);
+        applyFilters();
+      }
+    });
+
+    clearBtn?.addEventListener('click', () => {
+      state.person = '';
+      state.tag = '';
+      state.text = '';
+      if (searchInput) searchInput.value = '';
+      setActive('person', '');
+      setActive('tag', '');
+      applyFilters();
+    });
+
+    searchInput?.addEventListener('input', () => {
+      state.text = searchInput.value;
+      applyFilters();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '/' && document.activeElement?.tagName !== 'INPUT') {
+        e.preventDefault();
+        searchInput?.focus();
+      }
+      if (e.key === 'Escape' && document.activeElement === searchInput) {
+        clearBtn?.click();
+        searchInput?.blur();
+      }
+    });
+  </script>
+</Layout>
+
+<style>
+  main {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  .breadcrumb {
+    margin-bottom: 1.6rem;
+  }
+
+  .breadcrumb a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    border-bottom: 1px dashed transparent;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .breadcrumb a:hover {
+    color: var(--flame-in_progress);
+    border-bottom-color: var(--flame-in_progress);
+  }
+
+  .archive-head {
+    margin-bottom: 1.8rem;
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.4rem;
+  }
+
+  :global(.archive-flame) {
+    color: var(--flame-archived, var(--flame-done));
+  }
+
+  h1 {
+    font-family: var(--font-serif);
+    font-size: 1.85rem;
+    margin: 0;
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+
+  .lede {
+    color: var(--text-dim);
+    margin: 0;
+    font-size: 0.9rem;
+  }
+
+  .filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    align-items: center;
+    margin-bottom: 1.4rem;
+  }
+
+  .filter-bar input[type="search"] {
+    flex: 1 1 220px;
+    min-width: 180px;
+    padding: 0.45rem 0.7rem;
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+    font-size: 0.85rem;
+  }
+
+  .filter-bar input[type="search"]:focus {
+    outline: none;
+    border-color: var(--flame-in_progress);
+    box-shadow: 0 0 0 2px var(--flame-in_progress-glow);
+  }
+
+  .filter-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    width: 100%;
+  }
+
+  .filter-pill {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 0.18rem 0.65rem;
+    font: inherit;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: border-color 150ms ease, color 150ms ease, background 150ms ease;
+  }
+
+  .filter-pill:hover {
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+  }
+
+  .filter-pill.is-active {
+    background: var(--flame-in_progress-glow);
+    color: var(--flame-in_progress);
+    border-color: var(--flame-in_progress);
+  }
+
+  .filter-pill.tag-filter {
+    font-family: var(--font-mono);
+  }
+
+  .filter-clear {
+    background: transparent;
+    border: none;
+    color: var(--text-soft);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    text-decoration: underline dashed;
+    text-underline-offset: 3px;
+  }
+
+  .filter-clear:hover {
+    color: var(--flame-blocked);
+  }
+
+  .archive-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem;
+  }
+</style>
