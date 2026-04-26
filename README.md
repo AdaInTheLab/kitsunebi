@@ -115,6 +115,27 @@ The script is idempotent. On first run, PM2 starts the process from `ecosystem.c
 
 The VPS's own git working copy under the project root is what the debounced `git-sync` layer pushes from — so GitHub stays current as audit log + offsite backup, but canonical state lives on the VPS filesystem.
 
+## Mesh notifications
+
+When `KITSUNEBI_MESH_URL` is set, every card write fires a notification to the Skulk's mesh bus addressed to each interested party — the card's **owner + collaborators**, minus the actor (no self-pings).
+
+Events:
+
+| Action               | Notification text                                       |
+|----------------------|---------------------------------------------------------|
+| `POST /api/cards`    | `created "<title>" — <link>`                            |
+| `PATCH …/:id`        | `patched "<title>" (<fields>) — <link>`                 |
+| `POST …/:id/move`    | `moved "<title>" to <status> — <link>` *(only on column change; pure reorders are quiet)* |
+| `POST …/:id/attachments`  | `attached <file> to "<title>" — <link>`            |
+| `DELETE …/:id/attachments` | `removed <file> from "<title>" — <link>`         |
+| `POST …/:id/comments` | `commented on "<title>": <preview> — <link>`           |
+
+Each notification is a `{ from, to, text }` POST to `${KITSUNEBI_MESH_URL}/message`. `from` is the agent name (or `kitsunebi` for browser writes); `to` is the recipient agent. Mesh-side fan-out (push webhooks, inbox storage, etc) is whatever your mesh server already does.
+
+Failure mode: best-effort. Network errors / 4xx / 5xx are logged and swallowed; the kitsunebi write still succeeds. The feature is off by default — when `KITSUNEBI_MESH_URL` is unset, this layer is a no-op so the API works fine on boxes without mesh connectivity.
+
+> **VPS connectivity caveat.** kitsunebi runs on the DH VPS. The Skulk mesh runs on Koda's Hearth at a Tailscale IP. For notifications to land in prod, either put the VPS on Tailscale or expose the mesh via Cloudflare Tunnel. Local dev kitsunebi (running on Ada's PC) reaches the mesh at `localhost:3337` directly.
+
 ## Comments
 
 Each card can carry a thread of comments — humans drop notes from the detail page; agents post via `POST /api/cards/:id/comments` (or the `board_comment` openhearth tool, once that ships).

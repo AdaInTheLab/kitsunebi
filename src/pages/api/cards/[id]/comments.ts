@@ -20,6 +20,7 @@ import { readCard } from '../../../../lib/cards-fs';
 import { json, jsonError, readJson, requireSameOrigin } from '../../../../lib/api-helpers';
 import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
+import { notifyCardChangeBackground } from '../../../../lib/mesh-notify';
 
 export const prerender = false;
 
@@ -77,11 +78,24 @@ export const POST: APIRoute = async (ctx) => {
     author = 'anon';
   }
 
+  let comment;
   try {
-    const comment = await appendComment(id, { text: body.text, author });
-    scheduleGitSync(`comment on ${id}: ${author}`);
-    return json(201, { id, comment });
+    comment = await appendComment(id, { text: body.text, author });
   } catch (err: any) {
     return jsonError(500, 'append_failed', err?.message ?? 'Failed to write comment.');
   }
+  scheduleGitSync(`comment on ${id}: ${author}`);
+
+  // Comment notification: actor is the comment author (agent or browser
+  // typed-name). Preview is first 80 chars, no surrounding quotes.
+  let title = id;
+  try { title = (await readCard(id)).frontmatter.title ?? id; } catch {}
+  const preview = body.text.length > 80 ? body.text.slice(0, 77) + '…' : body.text;
+  notifyCardChangeBackground({
+    cardId: id,
+    actor: author,
+    event: { type: 'comment', preview, title },
+  });
+
+  return json(201, { id, comment });
 };

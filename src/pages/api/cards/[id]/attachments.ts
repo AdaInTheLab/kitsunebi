@@ -20,6 +20,8 @@ import { join, sep } from 'node:path';
 import { json, jsonError, requireSameOrigin } from '../../../../lib/api-helpers';
 import { requireAuth } from '../../../../lib/agent-auth';
 import { scheduleGitSync } from '../../../../lib/git-sync';
+import { notifyCardChangeBackground } from '../../../../lib/mesh-notify';
+import { readCard } from '../../../../lib/cards-fs';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ATTACHMENTS_DIR = join(process.cwd(), 'public', 'attachments');
@@ -105,6 +107,14 @@ export const POST: APIRoute = async (ctx) => {
   const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
   scheduleGitSync(`attach ${id}/${outName}${shouldAppend ? ' (+ body)' : ''}${agentSuffix}`);
 
+  let title = id;
+  try { title = (await readCard(id)).frontmatter.title ?? id; } catch {}
+  notifyCardChangeBackground({
+    cardId: id,
+    actor: auth.agent,
+    event: { type: 'attach', filename: outName, title },
+  });
+
   return json(201, {
     id,
     filename: outName,
@@ -166,6 +176,14 @@ export const DELETE: APIRoute = async (ctx) => {
 
   const agentSuffix = auth.agent ? ` (${auth.agent})` : '';
   scheduleGitSync(`detach ${id}/${filename}${bodyReferenceRemoved ? ' (+ body)' : ''}${agentSuffix}`);
+
+  let title = id;
+  try { title = (await readCard(id)).frontmatter.title ?? id; } catch {}
+  notifyCardChangeBackground({
+    cardId: id,
+    actor: auth.agent,
+    event: { type: 'detach', filename, title },
+  });
 
   return json(200, {
     id,

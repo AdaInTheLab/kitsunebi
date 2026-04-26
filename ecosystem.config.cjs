@@ -94,6 +94,17 @@ module.exports = {
         // Auto-archive sweep threshold (default 14). Cards in `done` for
         // ≥ this many days move to `archived` on the next page load.
         // KITSUNEBI_ARCHIVE_DAYS: '14',
+
+        // Mesh-webhook notifications. When set, kitsunebi POSTs a
+        // notification to ${KITSUNEBI_MESH_URL}/message after each card
+        // write, addressed to the card's owner + collaborators (minus the
+        // actor). Unset = feature off. Reachable from this VPS — needs
+        // either Tailscale on the VPS or the mesh exposed publicly.
+        // KITSUNEBI_MESH_URL: 'http://100.108.52.70:3337',
+
+        // Public URL embedded in notification text for click-through.
+        // Defaults to https://kitsunebi.kitsuneden.net.
+        // KITSUNEBI_PUBLIC_URL: 'https://kitsunebi.kitsuneden.net',
       },
 
       max_restarts: 10,
