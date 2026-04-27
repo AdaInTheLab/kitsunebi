@@ -15,19 +15,31 @@ const allCards = await getCollection('cards');
 
 // Sanity check: Astro silently drops cards/*.md files that fail schema
 // validation, with no build warning. (Cost us a day where kc-troubleshooting-docs
-// vanished from the live board because of `completed: null`.) Compare the
-// loaded collection against the on-disk file list and fail the build with a
-// useful message if any are missing.
+// vanished from the live board because of `completed: null`.)
+//
+// We compare the build-time-loaded collection against the live on-disk file
+// list. Two distinct cases produce a mismatch:
+//
+//   1. A card's frontmatter is broken — Astro silently dropped it. We want
+//      to surface this loudly.
+//   2. A card was created on disk AFTER the last build (e.g. via the agent
+//      API on prod, between deploys). That card's frontmatter is presumably
+//      fine, just newer than the bundled collection. We DON'T want to crash
+//      the page over this — the next deploy picks it up. (Crashing here was
+//      our 500 on 2026-04-27 when Sage created `deep-work-window-design`
+//      via the API and the site went down for everyone.)
+//
+// Net behavior: log a single console warning listing every missing id; the
+// page still renders the cards we have. Real broken-frontmatter bugs surface
+// in the warn line; new-card-since-build mismatches resolve themselves on
+// the next deploy without taking the site down.
 const onDisk = readdirSync('./cards').filter((f) => f.endsWith('.md')).map((f) => f.replace(/\.md$/, ''));
 const loadedIds = new Set(allCards.map((c) => c.id));
 const missing = onDisk.filter((id) => !loadedIds.has(id));
 if (missing.length > 0) {
-  throw new Error(
-    `kitsunebi build: ${missing.length} card(s) failed schema validation and were silently dropped:\n` +
-    missing.map((m) => `  - cards/${m}.md`).join('\n') +
-    `\n\nCheck frontmatter against src/content.config.ts. Common gotchas:\n` +
-    `  - status must be one of: backlog | in_progress | blocked | done | archived (note underscore)\n` +
-    `  - dates must be YYYY-MM-DD or omitted; use 'completed: null' only on fields that allow null`
+  console.warn(
+    `[kitsunebi] ${missing.length} card(s) on disk are not in the bundled collection: ${missing.join(', ')}.\n` +
+    `  Either added since the last build (next deploy fixes), or have invalid frontmatter (check src/content.config.ts).`
   );
 }
 
