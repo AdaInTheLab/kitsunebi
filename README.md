@@ -90,6 +90,46 @@ ssh humanpatternlab@vps32678.dreamhostps.com '
 
 **5. (Optional) Cloudflare Zero Trust gate.** Zero Trust → Access → Applications → add `kitsunebi.kitsuneden.net` with an email policy locked to your address.
 
+**6. VPS git-sync wiring.** The running kitsunebi process commits + pushes API mutations through its own git checkout. That needs three things in place:
+
+- **Identity.** `git commit` won't run without an author identity. Set it once in the working copy:
+
+  ```bash
+  ssh humanpatternlab@vps32678.dreamhostps.com '
+    cd ~/kitsunebi.kitsuneden.net &&
+    git config user.email "kitsunebi-vps@kitsuneden.net" &&
+    git config user.name "kitsunebi (vps)"
+  '
+  ```
+
+- **Push credentials.** Generate a deploy key on the VPS, register it as a write-enabled deploy key on the GitHub repo, switch the remote to SSH:
+
+  ```bash
+  # On VPS
+  ssh-keygen -t ed25519 -f ~/.ssh/kitsunebi_github -N "" -C "vps git-sync"
+  cat ~/.ssh/kitsunebi_github.pub   # → add at github.com/.../settings/keys (✓ Allow write)
+
+  # SSH config so git uses this key for the kitsunebi remote
+  cat >> ~/.ssh/config <<'EOF'
+  Host github.com-kitsunebi
+    HostName github.com
+    User git
+    IdentityFile ~/.ssh/kitsunebi_github
+    IdentitiesOnly yes
+  EOF
+  chmod 600 ~/.ssh/config
+
+  cd ~/kitsunebi.kitsuneden.net
+  git remote set-url origin git@github.com-kitsunebi:AdaInTheLab/kitsunebi.git
+  ssh -T git@github.com-kitsunebi   # should say "Hi AdaInTheLab/kitsunebi!"
+  ```
+
+- **Track origin.** The git-sync layer rebases onto `origin/main` before each push. Make sure the working copy starts on `main` and tracks origin:
+
+  ```bash
+  cd ~/kitsunebi.kitsuneden.net && git fetch origin && git checkout main && git reset --hard origin/main
+  ```
+
 ### Per-deploy
 
 ```bash
