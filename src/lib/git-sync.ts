@@ -90,7 +90,29 @@ async function doSync(reasons: string[]): Promise<void> {
       return;
     }
     await git(['commit', '-m', message]);
-    await git(['push']);
+
+    // Origin may have moved since we last touched it (code PR merged,
+    // Ada's local kitsunebi pushed a data commit). Without this rebase,
+    // the push gets rejected with "fetch first" and our commit sits
+    // local-only. The 2026-04-27 incident was a week of such orphaned
+    // commits piling up because origin had drifted.
+    //
+    // We rebase rather than merge so the audit log stays linear — each
+    // (agent) commit lands cleanly on top of whatever origin had.
+    try {
+      await git(['fetch', 'origin', 'main']);
+      await git(['rebase', 'origin/main']);
+    } catch (err: any) {
+      console.error(
+        '[kitsunebi/git-sync] rebase onto origin/main failed; commit kept locally, push skipped:',
+        err?.message ?? err,
+      );
+      // Best-effort cleanup so we don't leave a half-rebased tree behind.
+      try { await git(['rebase', '--abort']); } catch { /* nothing to abort */ }
+      return;
+    }
+
+    await git(['push', 'origin', 'main']);
     console.log(`[kitsunebi/git-sync] pushed: ${message.split('\n')[0]}`);
   } catch (err: any) {
     console.error('[kitsunebi/git-sync] failed:', err?.message ?? err);
