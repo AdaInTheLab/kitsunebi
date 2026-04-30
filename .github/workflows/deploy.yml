@@ -75,6 +75,24 @@ jobs:
           echo "${{ secrets.DH_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
 
+      - name: Pull latest cards into VPS working tree
+        # The running app's git-sync layer commits + pushes API mutations
+        # to origin, but never pulls. So a card created from a developer's
+        # local machine (or any commit landing on main outside the API
+        # path) never reaches the VPS disk ~ and any attempt to mutate it
+        # via the API 404s with "No card with id ..." even though the UI
+        # renders it (the UI shows cards bundled into dist/ at build time,
+        # which is in sync with main).
+        #
+        # Catch the VPS up before reloading. --autostash protects any
+        # uncommitted change the debounced commit hasn't gotten to yet
+        # (extremely unlikely in the deploy window, but cheap to be
+        # defensive about).
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DH_USER@$DH_HOST" \
+            "cd $DH_PATH && git fetch origin main && git pull --rebase --autostash origin main"
+
       - name: Rsync dist/ + ecosystem cjs to VPS
         run: |
           # Use --delete on dist/ so stale chunks get cleaned up between deploys.
