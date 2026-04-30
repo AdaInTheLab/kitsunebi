@@ -11,7 +11,8 @@
 # writes them; we don't overwrite live state.
 #
 # Required repo secret:
-#   DH_SSH_KEY — private key for kitsuneden@vps32678.dreamhostps.com
+#   DH_SSH_KEY — private key for humanpatternlab@vps32678.dreamhostps.com
+#                (matches the key on disk: ~/.ssh/hpl_notebook_deploy)
 
 name: Deploy to DreamHost
 
@@ -45,8 +46,8 @@ jobs:
 
     env:
       DH_HOST: vps32678.dreamhostps.com
-      DH_USER: kitsuneden
-      DH_PATH: /home/kitsuneden/kitsunebi.kitsuneden.net
+      DH_USER: humanpatternlab
+      DH_PATH: /home/humanpatternlab/kitsunebi.kitsuneden.net
 
     steps:
       - uses: actions/checkout@v4

@@ -101,11 +101,11 @@ module.exports = {
     {
       name: 'kitsunebi',
       script: 'dist/server/entry.mjs',
-      cwd: '/home/kitsuneden/kitsunebi.kitsuneden.net',
+      cwd: '/home/humanpatternlab/kitsunebi.kitsuneden.net',
 
       // Match the Node version lab-api uses so PM2 doesn't fall back to
       // the box's system Node 12.
-      interpreter: '/home/kitsuneden/.nvm/versions/node/v20.19.6/bin/node',
+      interpreter: '/home/humanpatternlab/.nvm/versions/node/v20.19.6/bin/node',
 
       exec_mode: 'fork',
       time: true,
@@ -154,14 +154,14 @@ module.exports = {
       max_restarts: 10,
       restart_delay: 2000,
 
-      out_file: '/home/kitsuneden/kitsunebi.kitsuneden.net/logs/kitsunebi.out.log',
-      error_file: '/home/kitsuneden/kitsunebi.kitsuneden.net/logs/kitsunebi.err.log',
+      out_file: '/home/humanpatternlab/kitsunebi.kitsuneden.net/logs/kitsunebi.out.log',
+      error_file: '/home/humanpatternlab/kitsunebi.kitsuneden.net/logs/kitsunebi.err.log',
       merge_logs: true,
     },
 
     {
       name: 'cf-tunnel-kitsunebi',
-      script: '/home/kitsuneden/bin/cloudflared',
+      script: '/home/humanpatternlab/bin/cloudflared',
       exec_mode: 'fork',
       time: true,
 
@@ -178,8 +178,8 @@ module.exports = {
       max_restarts: 20,
       restart_delay: 3000,
 
-      out_file: '/home/kitsuneden/kitsunebi.kitsuneden.net/logs/cf-tunnel-kitsunebi.out.log',
-      error_file: '/home/kitsuneden/kitsunebi.kitsuneden.net/logs/cf-tunnel-kitsunebi.err.log',
+      out_file: '/home/humanpatternlab/kitsunebi.kitsuneden.net/logs/cf-tunnel-kitsunebi.out.log',
+      error_file: '/home/humanpatternlab/kitsunebi.kitsuneden.net/logs/cf-tunnel-kitsunebi.err.log',
       merge_logs: true,
     },
   ],
