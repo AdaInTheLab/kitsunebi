@@ -140,7 +140,7 @@ const dueClass = daysUntilDue === null
     transform: scale(0.98) translateY(-1px);
   }
 
-  /* Don't let inner links/buttons override the grab cursor — but DO let
+  /* Don't let inner links/buttons override the grab cursor ~ but DO let
      them remain clickable. The drag listener stops short of them. */
   .card a, .card button {
     cursor: pointer;
@@ -247,7 +247,7 @@ const dueClass = daysUntilDue === null
     color: var(--text-dim);
   }
 
-  /* Body is hidden by default — most cards have a lot of body text and
+  /* Body is hidden by default ~ most cards have a lot of body text and
      it overwhelms the board. The `^` toggle below the header expands
      it on demand. State persists per-card in localStorage. */
   .card-body {
@@ -635,7 +635,7 @@ const dueClass = daysUntilDue === null
   // pages render via Card.astro). Mirrors the detail-page behavior at a
   // smaller scale: hover reveals an affordance, click swaps for an input,
   // Enter/blur saves, Escape cancels. PATCHes /api/cards/:id with the
-  // changed field; on success the DOM is patched in place — no page
+  // changed field; on success the DOM is patched in place ~ no page
   // reload, so drag-drop and filter state survive the edit.
 
   const CHIP_SELECTORS = [
@@ -898,7 +898,7 @@ const dueClass = daysUntilDue === null
     try {
       localStorage.setItem(EXPANDED_KEY, JSON.stringify([...set]));
     } catch {
-      // Quota / private mode — non-fatal.
+      // Quota / private mode ~ non-fatal.
     }
   }
 

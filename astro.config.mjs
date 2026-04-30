@@ -3,7 +3,7 @@ import { defineConfig } from 'astro/config';
 import node from '@astrojs/node';
 
 // We're hosted on a DreamHost VPS behind a Cloudflare Tunnel, not Vercel.
-// `output: 'server'` means every request re-reads the markdown from disk —
+// `output: 'server'` means every request re-reads the markdown from disk ~
 // which is exactly what we want, because the API routes mutate cards on
 // disk and we don't want stale snapshots after a drag-and-drop.
 //

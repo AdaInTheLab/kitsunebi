@@ -5,7 +5,7 @@
  * to `archived`. The sweep runs lazily on board page loads, debounced 1h via
  * a stamp file at `.archive-sweep-stamp`. No cron required.
  *
- * Eligibility uses the `completed:` date — i.e. the day the card was moved
+ * Eligibility uses the `completed:` date ~ i.e. the day the card was moved
  * into the done column. Cards with `status: done` but no `completed` are
  * skipped (we have no clock to start counting from).
  */
@@ -32,7 +32,7 @@ export async function maybeSweepArchived(): Promise<SweepResult> {
       return { swept: [], skipped: 'recent' };
     }
   } catch {
-    // No stamp yet — first sweep.
+    // No stamp yet ~ first sweep.
   }
 
   const days = Number(process.env.KITSUNEBI_ARCHIVE_DAYS ?? 14);

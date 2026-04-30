@@ -26,7 +26,7 @@ const { status, label, cards, commentCounts } = Astro.props;
 
   <div class="column-body">
     {cards.length === 0 ? (
-      <div class="empty">— quiet —</div>
+      <div class="empty">~ quiet ~</div>
     ) : (
       cards.map((card, i) => <Card card={card} index={i} commentCount={commentCounts?.get(card.id) ?? 0} />)
     )}
@@ -34,7 +34,7 @@ const { status, label, cards, commentCounts } = Astro.props;
 </section>
 
 <script>
-  // Column collapse state — persisted per column in localStorage
+  // Column collapse state ~ persisted per column in localStorage
   const STORAGE_KEY = 'kitsunebi:collapsed-columns';
 
   function getCollapsed(): Set<string> {

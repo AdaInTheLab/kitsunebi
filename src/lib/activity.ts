@@ -18,7 +18,7 @@
  * commits authored before agent-attribution shipped don't either.
  *
  * We intentionally drop merge commits, code commits, and anything we
- * can't parse — the activity feed is about *board* changes, not source.
+ * can't parse ~ the activity feed is about *board* changes, not source.
  */
 
 import { spawn } from 'node:child_process';
@@ -45,7 +45,7 @@ export interface ActivityEvent {
   agent: string | null;
   /** Human-friendly verb phrase, e.g. "moved to done", "attached screenshot.png". */
   detail: string;
-  /** Original commit subject — kept around in case the renderer wants the source. */
+  /** Original commit subject ~ kept around in case the renderer wants the source. */
   raw: string;
 }
 
@@ -85,7 +85,7 @@ const PATTERNS: Array<{ re: RegExp; build: (m: RegExpMatchArray) => Omit<Activit
     re: /^create ([a-z0-9][a-z0-9-]*): (.+?)(?: \(([^()]+)\))?$/,
     build: (m) => ({ type: 'create', cardId: m[1], detail: 'created', agent: m[3] ?? null, raw: m[0] }),
   },
-  // comment on <id>: <author>   (author isn't parenthesized — comment commits are formatted differently)
+  // comment on <id>: <author>   (author isn't parenthesized ~ comment commits are formatted differently)
   {
     re: /^comment on ([a-z0-9][a-z0-9-]*): (.+)$/,
     build: (m) => ({ type: 'comment', cardId: m[1], detail: 'commented', agent: m[2].trim(), raw: m[0] }),
@@ -104,7 +104,7 @@ const PATTERNS: Array<{ re: RegExp; build: (m: RegExpMatchArray) => Omit<Activit
 ];
 
 function parseSubject(subject: string): Omit<ActivityEvent, 'hash' | 'timestamp'> | null {
-  // Drop merge commits and obvious code-PR commits — they're not board activity.
+  // Drop merge commits and obvious code-PR commits ~ they're not board activity.
   if (
     subject.startsWith('Merge pull request') ||
     subject.startsWith('Merge branch') ||

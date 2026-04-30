@@ -18,7 +18,7 @@ const cards = defineCollection({
     due: dateish.nullable().optional(),
     created: dateish.nullable().optional(),
     // `completed: null` is a natural way to say "not done yet" when the field
-    // is present in frontmatter but blank — make it tolerated, same shape as `due`.
+    // is present in frontmatter but blank ~ make it tolerated, same shape as `due`.
     // (Cost us a deploy where kc-troubleshooting-docs silently vanished from
     // the board because `completed: null` failed schema validation.)
     completed: dateish.nullable().optional(),
@@ -27,7 +27,7 @@ const cards = defineCollection({
     // Optional floating-point sort key for intra-column position. When the
     // user drags a card to a specific spot in a column, we set its `order:`
     // to the midpoint of its new neighbors. Cards without an explicit order
-    // sort by `-created` (newer first) — same behavior as before this field
+    // sort by `-created` (newer first) ~ same behavior as before this field
     // existed. See src/pages/index.astro for the interleaved sort.
     order: z.number().nullable().optional(),
   }),

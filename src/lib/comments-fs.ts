@@ -1,7 +1,7 @@
 /**
  * Per-card comment storage.
  *
- * Each card's comments live at `comments/<card-id>.jsonl` — one comment
+ * Each card's comments live at `comments/<card-id>.jsonl` ~ one comment
  * per line, in order of arrival. Append-only on the happy path so adds
  * are atomic and git diffs stay clean (one new line per comment).
  *
@@ -27,7 +27,7 @@ export interface Comment {
   id: string;
   /** Agent name (e.g. "luna", "koda") or human name (e.g. "ada"). */
   author: string;
-  /** Free-form markdown — preserved as-is, displayed as plain text on the page. */
+  /** Free-form markdown ~ preserved as-is, displayed as plain text on the page. */
   text: string;
   /** ISO timestamp when the comment was first written. */
   createdAt: string;
@@ -82,7 +82,7 @@ export async function listComments(cardId: string): Promise<Comment[]> {
         out.push(parsed);
       }
     } catch {
-      // Skip malformed lines rather than fail the whole read — a bad line
+      // Skip malformed lines rather than fail the whole read ~ a bad line
       // shouldn't blast the rest of the conversation.
     }
   }
@@ -109,7 +109,7 @@ export async function appendComment(cardId: string, input: NewComment): Promise<
   await mkdir(COMMENTS_DIR, { recursive: true });
   const path = pathFor(cardId);
   const line = JSON.stringify(comment) + '\n';
-  // Open with O_APPEND via writeFile + flag:'a' — fs writes are atomic for
+  // Open with O_APPEND via writeFile + flag:'a' ~ fs writes are atomic for
   // small payloads on common filesystems, so concurrent appends don't tear.
   await writeFile(path, line, { flag: 'a', encoding: 'utf8' });
   return comment;

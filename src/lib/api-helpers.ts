@@ -2,7 +2,7 @@
  * Tiny shared helpers for the kitsunebi API routes.
  *
  * These endpoints all sit behind the Cloudflare Zero Trust gate on
- * kitsunebi.kitsuneden.net — that's our authn. The same-origin check below
+ * kitsunebi.kitsuneden.net ~ that's our authn. The same-origin check below
  * is just CSRF defense in depth: even if Zero Trust were misconfigured to
  * allow some other origin's browser session, we'd still reject the write
  * because the Origin header wouldn't match.

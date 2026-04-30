@@ -7,7 +7,7 @@ import Flame from '../components/Flame.astro';
 import { maybeSweepArchived } from '../lib/archive-sweep';
 import { countComments } from '../lib/comments-fs';
 
-// Auto-archive sweep — debounced 1h via stamp file, no-op on most page loads.
+// Auto-archive sweep ~ debounced 1h via stamp file, no-op on most page loads.
 // Runs before getCollection so any cards moved to `archived` reflect immediately.
 await maybeSweepArchived();
 
@@ -20,12 +20,12 @@ const allCards = await getCollection('cards');
 // We compare the build-time-loaded collection against the live on-disk file
 // list. Two distinct cases produce a mismatch:
 //
-//   1. A card's frontmatter is broken — Astro silently dropped it. We want
+//   1. A card's frontmatter is broken ~ Astro silently dropped it. We want
 //      to surface this loudly.
 //   2. A card was created on disk AFTER the last build (e.g. via the agent
 //      API on prod, between deploys). That card's frontmatter is presumably
 //      fine, just newer than the bundled collection. We DON'T want to crash
-//      the page over this — the next deploy picks it up. (Crashing here was
+//      the page over this ~ the next deploy picks it up. (Crashing here was
 //      our 500 on 2026-04-27 when Sage created `deep-work-window-design`
 //      via the API and the site went down for everyone.)
 //
@@ -73,7 +73,7 @@ const cardsByStatus = Object.fromEntries(
 
 const totalActive = cardsByStatus.in_progress.length + cardsByStatus.blocked.length + cardsByStatus.backlog.length;
 
-// Owner breakdown — only count active cards (not done/archived)
+// Owner breakdown ~ only count active cards (not done/archived)
 const activeCards = sorted.filter((c) => c.data.status !== 'done' && c.data.status !== 'archived');
 const ownerCounts = new Map<string, number>();
 for (const c of activeCards) {
@@ -101,7 +101,7 @@ const commentCounts = new Map<string, number>(
 );
 ---
 
-<Layout title="kitsunebi — the Skulk's board">
+<Layout title="kitsunebi ~ the Skulk's board">
   <main>
     <header class="site-head">
       <div class="brand">
@@ -228,8 +228,8 @@ const commentCounts = new Map<string, number>(
 
       // ---------- Drag-and-drop with status moves AND intra-column sort ----------
       // Cards have `draggable="true"`. Each column body has `data-column="<status>"`.
-      // On dragover we figure out the *insertion point* — between which two
-      // sibling cards the drop would land — and on drop we compute a new
+      // On dragover we figure out the *insertion point* ~ between which two
+      // sibling cards the drop would land ~ and on drop we compute a new
       // floating-point `order` as the midpoint of those neighbors' "effective
       // orders" (explicit `data-order` if set, else `-Date.parse(data-created)`
       // so newer-first stays the default for unordered cards).
@@ -449,12 +449,12 @@ const commentCounts = new Map<string, number>(
         const count = col.querySelectorAll('.card').length;
         const countEl = col.querySelector('.count');
         if (countEl) countEl.textContent = String(count);
-        // If the target now has zero cards, drop a "— quiet —" placeholder back in.
+        // If the target now has zero cards, drop a "~ quiet ~" placeholder back in.
         const body = col.querySelector('.column-body');
         if (body && count === 0 && !body.querySelector('.empty')) {
           const empty = document.createElement('div');
           empty.className = 'empty';
-          empty.textContent = '— quiet —';
+          empty.textContent = '~ quiet ~';
           body.appendChild(empty);
         }
       }
@@ -535,7 +535,7 @@ const commentCounts = new Map<string, number>(
           const src = (el as HTMLImageElement | HTMLVideoElement).getAttribute('src') ?? '';
           const expectedPrefix = `/attachments/${cardId}/`;
           if (!cardId || !src.startsWith(expectedPrefix)) {
-            // Not an attachment we own — skip the remove affordance, but still
+            // Not an attachment we own ~ skip the remove affordance, but still
             // make it 1:1 by wrapping (so layout is consistent).
             const wrap = document.createElement('span');
             wrap.className = 'thumb';

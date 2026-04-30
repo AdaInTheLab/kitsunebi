@@ -32,7 +32,7 @@ let inFlight: Promise<void> | null = null;
 
 /**
  * Mark that something on disk has changed and a commit is desired. Calls
- * pile up inside the debounce window — one commit will eventually land
+ * pile up inside the debounce window ~ one commit will eventually land
  * with a message that summarizes the batch.
  */
 export function scheduleGitSync(reason: string): void {
@@ -97,7 +97,7 @@ async function doSync(reasons: string[]): Promise<void> {
     // local-only. The 2026-04-27 incident was a week of such orphaned
     // commits piling up because origin had drifted.
     //
-    // We rebase rather than merge so the audit log stays linear — each
+    // We rebase rather than merge so the audit log stays linear ~ each
     // (agent) commit lands cleanly on top of whatever origin had.
     try {
       await git(['fetch', 'origin', 'main']);
@@ -116,7 +116,7 @@ async function doSync(reasons: string[]): Promise<void> {
     console.log(`[kitsunebi/git-sync] pushed: ${message.split('\n')[0]}`);
   } catch (err: any) {
     console.error('[kitsunebi/git-sync] failed:', err?.message ?? err);
-    // Don't rethrow — git is best-effort. Source of truth is the filesystem.
+    // Don't rethrow ~ git is best-effort. Source of truth is the filesystem.
   }
 }
 

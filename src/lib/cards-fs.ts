@@ -6,7 +6,7 @@
  * mutate them directly via this module.
  *
  * Why we don't use `gray-matter.stringify` for writes:
- *   js-yaml (gray-matter's engine) reformats every key on round-trip — flow
+ *   js-yaml (gray-matter's engine) reformats every key on round-trip ~ flow
  *   arrays become block style, unquoted strings get quoted, blank lines
  *   collapse. Every save would be a noisy git diff against itself.
  *
@@ -100,7 +100,7 @@ export async function patchCardFrontmatter(id: string, patch: CardPatch): Promis
 }
 
 /**
- * Pure function form of the patch — exposed for unit testing without
+ * Pure function form of the patch ~ exposed for unit testing without
  * touching disk. Does the surgical YAML rewrite.
  */
 export function applyFrontmatterPatch(raw: string, patch: CardPatch): string {
@@ -138,7 +138,7 @@ export function applyFrontmatterPatch(raw: string, patch: CardPatch): string {
   if (remainingPatch.size > 0) {
     const insertAt = lines.length > 0 && lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
     // Match the file's existing line-ending convention. We sample the line
-    // *before* the insert point — if it ends with `\r`, the file is CRLF.
+    // *before* the insert point ~ if it ends with `\r`, the file is CRLF.
     const sampleLine = insertAt > 0 ? lines[insertAt - 1] : '';
     const eol = sampleLine.endsWith('\r') ? '\r' : '';
     const additions: string[] = [];
@@ -154,7 +154,7 @@ export function applyFrontmatterPatch(raw: string, patch: CardPatch): string {
 /**
  * Returns the byte offsets of the frontmatter block contents (i.e. between
  * the opening `---\n` and the closing `\n---`). Throws if the file doesn't
- * start with a frontmatter block — kitsunebi cards always do.
+ * start with a frontmatter block ~ kitsunebi cards always do.
  */
 function locateFrontmatter(raw: string): { fmStart: number; fmEnd: number } {
   if (!raw.startsWith('---\n') && !raw.startsWith('---\r\n')) {
@@ -183,7 +183,7 @@ function formatYamlScalar(value: unknown): string {
   if (value === null || value === undefined) return 'null';
   if (typeof value === 'boolean' || typeof value === 'number') return String(value);
   const str = String(value);
-  // ISO YYYY-MM-DD dates are the existing card convention — emit them
+  // ISO YYYY-MM-DD dates are the existing card convention ~ emit them
   // unquoted to preserve clean git diffs. YAML auto-parses them to a
   // Date object, and our `dateish` schema transform normalizes them back
   // to a string downstream, so the round trip is lossless either way.
@@ -194,7 +194,7 @@ function formatYamlScalar(value: unknown): string {
     /^[-?:,\[\]{}#&*!|>'"%@`]/.test(str) ||
     /[:#]\s/.test(str) ||
     /^(true|false|null|yes|no|on|off)$/i.test(str) ||
-    /^-?\d/.test(str) // numeric-ish — quote it so parsers don't coerce
+    /^-?\d/.test(str) // numeric-ish ~ quote it so parsers don't coerce
   ) {
     // Use double quotes; escape backslashes and double quotes inside.
     return `"${str.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
@@ -203,7 +203,7 @@ function formatYamlScalar(value: unknown): string {
 }
 
 /**
- * Card ids are used as path components — refuse anything that could escape
+ * Card ids are used as path components ~ refuse anything that could escape
  * the cards/ directory or cause weird filesystem behavior.
  */
 function isSafeId(id: string): boolean {

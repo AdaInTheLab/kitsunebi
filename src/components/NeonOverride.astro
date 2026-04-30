@@ -24,7 +24,7 @@
 import Flame from './Flame.astro';
 
 // Nine tails fanning behind page-center, spread from -100° to +100°
-// in 25° steps. The kyubi reference is the point — this is what gets
+// in 25° steps. The kyubi reference is the point ~ this is what gets
 // staggered-ignited.
 const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
 ---
@@ -53,7 +53,7 @@ const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
 
 <script is:inline>
   // Run inline + un-bundled so the persisted class lands BEFORE first
-  // paint — otherwise the page flashes default-mode for a frame on every
+  // paint ~ otherwise the page flashes default-mode for a frame on every
   // load when override is on.
   (function () {
     const KEY = 'kitsunebi:neon-override';
@@ -152,7 +152,7 @@ const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
   }
 
   /* Stronger card bloom in override mode. Direct override of the .card
-     baseline shadow defined in Card.astro's scoped CSS — global is:global
+     baseline shadow defined in Card.astro's scoped CSS ~ global is:global
      here lets us reach the scoped class names. */
   body.neon-override :global(.card) {
     box-shadow:
@@ -168,7 +168,7 @@ const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
       0 0 80px -28px var(--flame);
   }
 
-  /* The body background gets a warm/teal grade — subtle, not scenery-stealing. */
+  /* The body background gets a warm/teal grade ~ subtle, not scenery-stealing. */
   body.neon-override::after {
     background:
       radial-gradient(ellipse at center,
@@ -192,7 +192,7 @@ const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
     height: 0;
     pointer-events: none;
     z-index: 40;
-    /* Hidden unless igniting — keeps the 9 SVGs out of the layout & a11y tree. */
+    /* Hidden unless igniting ~ keeps the 9 SVGs out of the layout & a11y tree. */
     visibility: hidden;
   }
 
@@ -267,7 +267,7 @@ const tailAngles = [-100, -75, -50, -25, 0, 25, 50, 75, 100];
   /* ─── Glitch-crackle sweep ─── */
   /* Single horizontal sliver, top-to-bottom across the viewport once.
      Subtle RGB shift; quick (≈900ms). Spec calls for a "single subtle
-     glitch-crackle sweep" — singular and contained. */
+     glitch-crackle sweep" ~ singular and contained. */
   .neon-glitch {
     position: fixed;
     inset: 0;

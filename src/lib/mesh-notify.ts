@@ -3,7 +3,7 @@
  *
  * After each kitsunebi write, fire-and-forget a notification to every
  * agent who owns or collaborates on the card (minus the one who made
- * the change — no self-pings). The notification flows via the Skulk's
+ * the change ~ no self-pings). The notification flows via the Skulk's
  * mesh bus (an HTTP endpoint exposing POST /message), which fans out
  * to whatever each agent has registered.
  *
@@ -20,7 +20,7 @@
  *                                    in each notification. Defaults
  *                                    to the public hostname.
  *
- * Failure mode: best-effort. Network errors, 4xx, 5xx — all logged
+ * Failure mode: best-effort. Network errors, 4xx, 5xx ~ all logged
  * and swallowed. The kitsunebi write already succeeded; a failed
  * notification shouldn't roll it back.
  */
@@ -59,17 +59,17 @@ const formatText = (cardId: string, ev: CardEvent): string => {
   const link = cardLink(cardId);
   switch (ev.type) {
     case 'create':
-      return `created "${ev.title}" — ${link}`;
+      return `created "${ev.title}" ~ ${link}`;
     case 'move':
-      return `moved "${ev.title}" to ${ev.toStatus} — ${link}`;
+      return `moved "${ev.title}" to ${ev.toStatus} ~ ${link}`;
     case 'patch':
-      return `patched "${ev.title}" (${ev.fields.join(', ')}) — ${link}`;
+      return `patched "${ev.title}" (${ev.fields.join(', ')}) ~ ${link}`;
     case 'attach':
-      return `attached ${ev.filename} to "${ev.title}" — ${link}`;
+      return `attached ${ev.filename} to "${ev.title}" ~ ${link}`;
     case 'detach':
-      return `removed ${ev.filename} from "${ev.title}" — ${link}`;
+      return `removed ${ev.filename} from "${ev.title}" ~ ${link}`;
     case 'comment':
-      return `commented on "${ev.title}": ${ev.preview} — ${link}`;
+      return `commented on "${ev.title}": ${ev.preview} ~ ${link}`;
   }
 };
 
@@ -97,7 +97,7 @@ async function recipients(cardId: string, actor: string | null): Promise<string[
  * Fire one POST per recipient. Best-effort: each failure is logged and
  * swallowed. Returns the count actually queued so callers can log it.
  *
- * The mesh `/message` endpoint shape is `{ from, to, text }` — the same
+ * The mesh `/message` endpoint shape is `{ from, to, text }` ~ the same
  * shape `bash skulk-mesh/scripts/mesh.sh send <from> <to> <text>` uses.
  */
 export async function notifyCardChange({ cardId, actor, event }: NotifyOpts): Promise<number> {
@@ -129,7 +129,7 @@ export async function notifyCardChange({ cardId, actor, event }: NotifyOpts): Pr
 }
 
 /**
- * Don't await this from inside an API route's response path — we don't
+ * Don't await this from inside an API route's response path. We don't
  * want the response time held hostage by a slow mesh. Fire-and-forget
  * wrapper.
  */

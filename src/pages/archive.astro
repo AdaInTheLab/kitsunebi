@@ -12,7 +12,7 @@ const all = await getCollection('cards');
 const archived = all
   .filter((c) => c.data.status === 'archived')
   .sort((a, b) => {
-    // Newest-completed-first — most recently archived at the top.
+    // Newest-completed-first ~ most recently archived at the top.
     const aMs = a.data.completed ? Date.parse(a.data.completed) : 0;
     const bMs = b.data.completed ? Date.parse(b.data.completed) : 0;
     return bMs - aMs;
@@ -36,7 +36,7 @@ const commentCounts = new Map<string, number>(
 );
 ---
 
-<Layout title="Archive — kitsunebi" description={`${archived.length} archived cards`}>
+<Layout title="Archive ~ kitsunebi" description={`${archived.length} archived cards`}>
   <main>
     <nav class="breadcrumb">
       <a href="/">← back to board</a>
@@ -50,7 +50,7 @@ const commentCounts = new Map<string, number>(
       <p class="lede">
         {archived.length === 0
           ? `No archived cards yet. Cards in done for ${archiveDays}+ days move here automatically.`
-          : `${archived.length} card${archived.length === 1 ? '' : 's'} — anything in done for ${archiveDays}+ days lands here.`}
+          : `${archived.length} card${archived.length === 1 ? '' : 's'} ~ anything in done for ${archiveDays}+ days lands here.`}
       </p>
     </header>
 
