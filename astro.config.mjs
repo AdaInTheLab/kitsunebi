@@ -30,4 +30,19 @@ export default defineConfig({
   security: {
     checkOrigin: false,
   },
+
+  vite: {
+    ssr: {
+      // Astro's Node standalone adapter doesn't bundle dependencies by
+      // default ~ it imports them from node_modules at runtime. Our
+      // deploy only rsyncs dist/ and ecosystem.config.cjs (no node_modules,
+      // no npm install on the VPS), which means new deps silently crash
+      // the running app at request time with ERR_MODULE_NOT_FOUND.
+      //
+      // Force-bundling here keeps that deploy pattern intact: the dep
+      // ends up in dist/ and the VPS never has to know about it. Add
+      // any future runtime-only dep to this list.
+      noExternal: ['marked'],
+    },
+  },
 });
