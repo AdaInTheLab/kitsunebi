@@ -1,12 +1,14 @@
 ---
 id: kc-vote-rewards
 title: Vote-for-rewards integration (server listing sites)
-status: backlog
+status: done
 owner: ada
 collaborators: [claude]
 created: 2026-04-26
 tags: [kitsunecommand, feature, economy]
 blocked_by: []
+order: -1777248000001
+completed: 2026-04-30
 ---
 
 Self-hosted 7D2D admins routinely list their server on sites like
