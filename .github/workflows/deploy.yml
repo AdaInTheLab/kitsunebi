@@ -89,10 +89,16 @@ jobs:
 
       - name: Reload PM2
         run: |
+          # --update-env is critical: without it, PM2 keeps the env block
+          # captured at process start. ecosystem.config.cjs reads secrets
+          # from sibling files (~/.kitsunebi-agent-tokens, ~/.kitsunebi-
+          # github-oauth.env), so any change there ~ adding the OAuth
+          # secrets, rotating the session secret, expanding the allowlist
+          # ~ won't reach the running process unless we re-read the env.
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             "$DH_USER@$DH_HOST" \
             "cd $DH_PATH && \
-             ~/.nvm/versions/node/v20.19.6/bin/pm2 reload kitsunebi || \
+             ~/.nvm/versions/node/v20.19.6/bin/pm2 reload kitsunebi --update-env || \
              ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem.config.cjs"
 
       - name: Verify
