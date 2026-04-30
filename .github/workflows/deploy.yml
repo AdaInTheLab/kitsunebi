@@ -87,6 +87,32 @@ jobs:
             ecosystem.config.cjs \
             "$DH_USER@$DH_HOST:$DH_PATH/"
 
+      - name: Write GitHub OAuth + session secrets file
+        # Regenerated on every deploy from GH repo secrets. Avoids needing
+        # humanpatternlab SSH access on Ada's local machine for routine
+        # secrets management. Missing GH secret = empty value in env file
+        # = sign-in 500s with a clear error in the server log; the
+        # marketing landing and read-only board still serve fine.
+        env:
+          GH_OAUTH_CLIENT_ID: ${{ secrets.KITSUNEBI_GITHUB_CLIENT_ID }}
+          GH_OAUTH_CLIENT_SECRET: ${{ secrets.KITSUNEBI_GITHUB_CLIENT_SECRET }}
+          SESSION_SECRET: ${{ secrets.KITSUNEBI_SESSION_SECRET }}
+          GH_ALLOWLIST: ${{ secrets.KITSUNEBI_GITHUB_ALLOWLIST }}
+        run: |
+          {
+            echo "KITSUNEBI_GITHUB_CLIENT_ID=$GH_OAUTH_CLIENT_ID"
+            echo "KITSUNEBI_GITHUB_CLIENT_SECRET=$GH_OAUTH_CLIENT_SECRET"
+            echo "KITSUNEBI_SESSION_SECRET=$SESSION_SECRET"
+            echo "KITSUNEBI_GITHUB_ALLOWLIST=$GH_ALLOWLIST"
+          } > /tmp/kitsunebi-oauth.env
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            /tmp/kitsunebi-oauth.env \
+            "$DH_USER@$DH_HOST:~/.kitsunebi-github-oauth.env"
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DH_USER@$DH_HOST" \
+            "chmod 600 ~/.kitsunebi-github-oauth.env"
+          rm /tmp/kitsunebi-oauth.env
+
       - name: Reload PM2
         run: |
           # --update-env is critical: without it, PM2 keeps the env block

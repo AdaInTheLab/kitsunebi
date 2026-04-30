@@ -11,3 +11,4 @@ Thumbs.db
 .vercel
 .archive-sweep-stamp
 .idea/
+.kitsunebi-github-oauth.env
