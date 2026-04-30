@@ -19,6 +19,8 @@
 
 import type { APIContext } from 'astro';
 import { timingSafeEqual } from 'node:crypto';
+import { verifySession, SESSION_COOKIE } from './session';
+import { jsonError } from './api-helpers';
 
 interface AgentRecord {
   name: string;
@@ -84,24 +86,36 @@ export function _resetAgentTokenCache(): void {
 /** For typed handlers that want auth context inline. */
 export interface AuthOk {
   agent: string | null;
+  user: string | null;
 }
 
 /**
- * Authorise a request. Agent token wins if present and valid; otherwise
- * fall back to the same-origin browser path. Returns either a context
- * object (with the agent name, or null for browser callers) or a Response
- * to send back unmodified.
+ * Authorise a request. Three ways in:
+ *   1. `Authorization: Bearer <agent-token>` ~ a configured Skulk agent.
+ *      Wins if present and valid. Skips cookie + same-origin checks.
+ *   2. Same-origin browser request with a valid session cookie ~ a human
+ *      who's signed in via GitHub OAuth.
+ *   3. Same-origin without a session ~ rejected 401. The public/demo
+ *      mode is read-only; writes always require sign-in.
  *
- * Defined here rather than in api-helpers.ts so api-helpers stays focused
- * on its narrow CSRF concern; this module owns "who is calling".
+ * Wrong origin still 403s before we look at credentials. Defined here
+ * rather than in api-helpers.ts so api-helpers stays focused on its
+ * narrow CSRF concern; this module owns "who is calling".
  */
 export function requireAuth(
   ctx: APIContext,
   requireSameOrigin: (ctx: APIContext) => Response | null,
 ): AuthOk | Response {
   const agent = verifyAgentToken(ctx.request);
-  if (agent) return { agent };
+  if (agent) return { agent, user: null };
+
   const reject = requireSameOrigin(ctx);
   if (reject) return reject;
-  return { agent: null };
+
+  // Same-origin browser request ~ now require a valid session cookie.
+  const session = verifySession(ctx.cookies.get(SESSION_COOKIE)?.value);
+  if (!session) {
+    return jsonError(401, 'unauthorized', 'Sign in required for this action.');
+  }
+  return { agent: null, user: session.username };
 }
