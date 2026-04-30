@@ -1,21 +1,64 @@
 ---
 import { getEntry, render } from 'astro:content';
+import { marked } from 'marked';
+import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
 import Layout from '../../layouts/Layout.astro';
 import Flame from '../../components/Flame.astro';
 import { listComments } from '../../lib/comments-fs';
+import { readCard } from '../../lib/cards-fs';
 
-// Server-rendered. We read the card from disk on every request so post-API
-// mutations (drag-drop, inline edit) show up immediately without a rebuild.
+// Server-rendered. We try Astro's content collection first ~ that path
+// gives us schema validation + the full Astro <Content /> component with
+// its remark/rehype plugins. But the collection is bundled at BUILD time,
+// so cards created via the API after the last deploy aren't in it yet.
+// Fall back to reading the card directly off disk and rendering its body
+// with `marked` so newly-created cards work immediately. Schema goodness
+// is lost on the fallback path; correctness is gained.
 const { id } = Astro.params;
 if (!id) {
   return new Response('Not Found', { status: 404 });
 }
+
+let data: Record<string, any>;
+let Content: AstroComponentFactory | null = null;
+let bodyHtml: string | null = null;
+
 const card = await getEntry('cards', id);
-if (!card) {
-  return new Response('Not Found', { status: 404 });
+if (card) {
+  const rendered = await render(card);
+  Content = rendered.Content;
+  data = card.data;
+} else {
+  // Bundle miss ~ try disk before giving up.
+  let disk;
+  try {
+    disk = await readCard(id);
+  } catch (err: any) {
+    if (err?.code === 'ENOENT') {
+      return new Response('Not Found', { status: 404 });
+    }
+    throw err;
+  }
+  // Normalize frontmatter to the same shape the schema-validated path
+  // exposes (sensible defaults so the template doesn't choke on missing
+  // optional fields).
+  const fm = disk.frontmatter as Record<string, any>;
+  data = {
+    id: fm.id ?? id,
+    title: fm.title ?? id,
+    status: fm.status ?? 'backlog',
+    owner: fm.owner ?? '',
+    collaborators: Array.isArray(fm.collaborators) ? fm.collaborators : [],
+    tags: Array.isArray(fm.tags) ? fm.tags : [],
+    blocked_by: Array.isArray(fm.blocked_by) ? fm.blocked_by : [],
+    due: fm.due ?? null,
+    created: fm.created ?? null,
+    completed: fm.completed ?? null,
+    order: fm.order ?? null,
+  };
+  bodyHtml = await marked.parse(disk.body ?? '', { async: true });
 }
-const { Content } = await render(card);
-const data = card.data;
+
 const comments = await listComments(data.id);
 
 const statusLabels: Record<string, string> = {
@@ -120,7 +163,7 @@ const fmtCommentTime = (iso: string): string => {
       </header>
 
       <section class="detail-body" data-card-id={data.id}>
-        <Content />
+        {Content ? <Content /> : <Fragment set:html={bodyHtml ?? ''} />}
       </section>
 
       <section id="comments" class="comments" aria-label="Comments" data-card-id={data.id}>

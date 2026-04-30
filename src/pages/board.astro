@@ -41,6 +41,44 @@ if (missing.length > 0) {
     `[kitsunebi] ${missing.length} card(s) on disk are not in the bundled collection: ${missing.join(', ')}.\n` +
     `  Either added since the last build (next deploy fixes), or have invalid frontmatter (check src/content.config.ts).`
   );
+  // Hot-merge the disk-only cards into the in-memory collection so they
+  // render right away. Path-filtered deploys mean a card-only commit
+  // won't trigger a rebuild ~ without this hot-merge, freshly-created
+  // cards stay invisible on the board until something in src/ changes.
+  // We synthesize a collection-shaped entry from raw frontmatter; if a
+  // card has bad frontmatter this still throws downstream, which is the
+  // right loud failure mode (the schema warning above already named it).
+  const { readCard } = await import('../lib/cards-fs');
+  for (const diskId of missing) {
+    try {
+      const disk = await readCard(diskId);
+      const fm = disk.frontmatter as Record<string, any>;
+      // Match the ContentEntry-ish shape board.astro / Column / Card use.
+      // Cast through unknown so we don't have to match the full Astro type.
+      const synthetic = {
+        id: diskId,
+        slug: diskId,
+        body: disk.body ?? '',
+        collection: 'cards',
+        data: {
+          id: fm.id ?? diskId,
+          title: fm.title ?? diskId,
+          status: fm.status ?? 'backlog',
+          owner: fm.owner ?? '',
+          collaborators: Array.isArray(fm.collaborators) ? fm.collaborators : [],
+          tags: Array.isArray(fm.tags) ? fm.tags : [],
+          blocked_by: Array.isArray(fm.blocked_by) ? fm.blocked_by : [],
+          due: fm.due ?? null,
+          created: fm.created ?? null,
+          completed: fm.completed ?? null,
+          order: fm.order ?? null,
+        },
+      } as unknown as (typeof allCards)[number];
+      allCards.push(synthetic);
+    } catch {
+      // Bad frontmatter or read error ~ already warned above. Skip.
+    }
+  }
 }
 
 // Sort: explicit `order:` wins (ascending); cards without one fall back to
