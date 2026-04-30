@@ -157,3 +157,10 @@ jobs:
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             "$DH_USER@$DH_HOST" \
             "~/.nvm/versions/node/v20.19.6/bin/pm2 list | grep -E 'kitsunebi|cf-tunnel' || true"
+
+      - name: Show recent kitsunebi error log
+        if: always()
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
+            "$DH_USER@$DH_HOST" \
+            "tail -80 $DH_PATH/logs/kitsunebi.err.log 2>&1 || true"
