@@ -1,7 +1,6 @@
 ---
 import { getEntry, render } from 'astro:content';
 import { marked } from 'marked';
-import type { AstroComponentFactory } from 'astro/runtime/server/index.js';
 import Layout from '../../layouts/Layout.astro';
 import Flame from '../../components/Flame.astro';
 import { listComments } from '../../lib/comments-fs';
@@ -20,7 +19,12 @@ if (!id) {
 }
 
 let data: Record<string, any>;
-let Content: AstroComponentFactory | null = null;
+// `Content` is Astro's rendered Component when we have a bundled card,
+// or null when we fall back to disk + marked. Typed loosely on purpose ~
+// the precise AstroComponentFactory type lives in an internal path that
+// doesn't always resolve under SSR bundles, and we don't need the
+// stricter type for what we do with it (just stick it in JSX).
+let Content: any = null;
 let bodyHtml: string | null = null;
 
 const card = await getEntry('cards', id);
