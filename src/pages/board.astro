@@ -116,6 +116,9 @@ const canWrite = !!user;
             <span class="auth-dot" aria-hidden="true"></span>
             signed in as <strong>{user!.username}</strong>
           </span>
+          <button type="button" class="auth-link auth-cta new-card-btn" id="new-card-open">
+            + new card
+          </button>
           <a href="/auth/logout" class="auth-link">log out</a>
         </>
       ) : (
@@ -128,6 +131,58 @@ const canWrite = !!user;
         </>
       )}
     </div>
+    {canWrite && (
+      <dialog class="new-card-dialog" id="new-card-dialog" aria-labelledby="new-card-title">
+        <form method="dialog" class="new-card-form" id="new-card-form">
+          <h2 id="new-card-title">light a new flame</h2>
+
+          <label class="field">
+            <span>Title</span>
+            <input type="text" name="title" id="new-card-title-input" required maxlength="200" autocomplete="off" />
+          </label>
+
+          <label class="field">
+            <span>ID <small>(slug, auto-derived from title; tweak if you want)</small></span>
+            <input type="text" name="id" id="new-card-id-input" required pattern="^[a-z0-9][a-z0-9-]{0,99}$" autocomplete="off" />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>Status</span>
+              <select name="status" id="new-card-status-input" required>
+                <option value="backlog" selected>backlog</option>
+                <option value="in_progress">in_progress</option>
+                <option value="blocked">blocked</option>
+                <option value="done">done</option>
+              </select>
+            </label>
+
+            <label class="field">
+              <span>Owner</span>
+              <input type="text" name="owner" id="new-card-owner-input" required value={user!.username} autocomplete="off" />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Tags <small>(comma-separated, optional)</small></span>
+            <input type="text" name="tags" id="new-card-tags-input" placeholder="e.g. infra, ada" autocomplete="off" />
+          </label>
+
+          <label class="field">
+            <span>Description <small>(markdown, optional)</small></span>
+            <textarea name="body" id="new-card-body-input" rows="4" placeholder="What is this card about?"></textarea>
+          </label>
+
+          <div class="form-error" id="new-card-error" role="alert" hidden></div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-cancel" id="new-card-cancel">cancel</button>
+            <button type="submit" class="btn-submit" id="new-card-submit">create card</button>
+          </div>
+        </form>
+      </dialog>
+    )}
+
     <header class="site-head">
       <div class="brand">
         <Flame size={28} class="brand-flame" />
@@ -634,6 +689,118 @@ const canWrite = !!user;
       wrapThumbnails();
     </script>
 
+    <script>
+      // ---- New-card dialog (only mounted when CAN_WRITE) ----
+      const dialog = document.getElementById('new-card-dialog') as HTMLDialogElement | null;
+      const openBtn = document.getElementById('new-card-open');
+      const cancelBtn = document.getElementById('new-card-cancel');
+      const form = document.getElementById('new-card-form') as HTMLFormElement | null;
+      const titleInput = document.getElementById('new-card-title-input') as HTMLInputElement | null;
+      const idInput = document.getElementById('new-card-id-input') as HTMLInputElement | null;
+      const submitBtn = document.getElementById('new-card-submit') as HTMLButtonElement | null;
+      const errBox = document.getElementById('new-card-error');
+
+      // No-op if anonymous (none of the elements exist).
+      if (dialog && openBtn && form && titleInput && idInput && submitBtn) {
+        // ---- Title → slug auto-derivation ----
+        // Mirror the API's allowed slug shape: ^[a-z0-9][a-z0-9-]{0,99}$
+        // Lowercase, strip non-alphanumeric to '-', collapse runs of '-',
+        // trim leading/trailing '-', clamp to 100 chars.
+        function slugify(input: string): string {
+          return input
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/-+/g, '-')
+            .replace(/^-|-$/g, '')
+            .slice(0, 100);
+        }
+
+        // Track whether the user has manually edited the id field; once they
+        // have, stop overwriting it from the title.
+        let idDirty = false;
+        idInput.addEventListener('input', () => { idDirty = true; });
+
+        titleInput.addEventListener('input', () => {
+          if (!idDirty) {
+            idInput.value = slugify(titleInput.value);
+          }
+        });
+
+        // ---- Open / close ----
+        openBtn.addEventListener('click', () => {
+          if (errBox) { errBox.hidden = true; errBox.textContent = ''; }
+          form.reset();
+          // form.reset() blanks defaults; restore the owner from the rendered
+          // initial value (set by the SSR template to the signed-in user).
+          const ownerInput = document.getElementById('new-card-owner-input') as HTMLInputElement | null;
+          if (ownerInput && !ownerInput.value) ownerInput.value = ownerInput.defaultValue;
+          idDirty = false;
+          dialog.showModal();
+          titleInput.focus();
+        });
+
+        cancelBtn?.addEventListener('click', () => dialog.close());
+
+        // Click outside the form (on the backdrop) closes the dialog.
+        dialog.addEventListener('click', (e) => {
+          if (e.target === dialog) dialog.close();
+        });
+
+        // ---- Submit ----
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+          if (errBox) { errBox.hidden = true; errBox.textContent = ''; }
+
+          const fd = new FormData(form);
+          const tagsRaw = String(fd.get('tags') ?? '').trim();
+          const bodyText = String(fd.get('body') ?? '').trim();
+
+          const payload: Record<string, unknown> = {
+            id: String(fd.get('id') ?? '').trim(),
+            title: String(fd.get('title') ?? '').trim(),
+            status: String(fd.get('status') ?? 'backlog'),
+            owner: String(fd.get('owner') ?? '').trim(),
+          };
+          if (tagsRaw) {
+            payload.tags = tagsRaw.split(',').map((s) => s.trim()).filter(Boolean);
+          }
+          if (bodyText) {
+            payload.body = bodyText;
+          }
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'creating…';
+          try {
+            const r = await fetch('/api/cards', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            if (!r.ok) {
+              let msg = `HTTP ${r.status}`;
+              try {
+                const data = await r.json();
+                if (data?.message) msg = `${data.error ?? r.status}: ${data.message}`;
+              } catch { /* response wasn't JSON */ }
+              throw new Error(msg);
+            }
+            // Success: navigate to the new card's detail page so the user
+            // sees the card landed and can immediately fill in body content
+            // / attach images / etc. Reloading /board would also work but
+            // detail is the more useful next step.
+            window.location.href = `/cards/${encodeURIComponent(String(payload.id))}/`;
+          } catch (err) {
+            if (errBox) {
+              errBox.textContent = (err as Error).message ?? 'Failed to create card.';
+              errBox.hidden = false;
+            }
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'create card';
+          }
+        });
+      }
+    </script>
+
     <footer class="site-foot">
       <div class="foot-row">
         <div class="legend" aria-label="Status legend">
@@ -1053,5 +1220,167 @@ const canWrite = !!user;
   /* In read-only mode, neutralise the grab cursor and drop highlight. */
   main.readonly :global(.card) {
     cursor: default;
+  }
+
+  /* ---- "+ new card" button (lives in the auth-strip) ---- */
+  .new-card-btn {
+    background: transparent;
+    color: var(--flame-in_progress);
+    font: inherit;
+    font-size: 0.78rem;
+    cursor: pointer;
+    padding-left: 0.6rem;
+    border-left: 1px solid var(--border-soft);
+    border-bottom: 1px dashed transparent;
+  }
+
+  .new-card-btn:hover {
+    color: var(--flame-in_progress);
+    border-bottom-color: var(--flame-in_progress);
+  }
+
+  /* ---- New-card dialog ---- */
+  .new-card-dialog {
+    width: min(560px, 92vw);
+    max-height: 88vh;
+    padding: 0;
+    background: var(--bg-card);
+    color: var(--text);
+    border: 1px solid var(--flame-in_progress);
+    border-radius: 10px;
+    box-shadow: 0 0 40px var(--flame-in_progress-glow);
+    overflow: hidden;
+  }
+
+  .new-card-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+  }
+
+  .new-card-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+    padding: 1.5rem 1.6rem;
+    overflow-y: auto;
+    max-height: 88vh;
+  }
+
+  .new-card-form h2 {
+    font-family: var(--font-serif);
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0 0 0.3rem;
+    color: var(--flame-in_progress);
+  }
+
+  .new-card-form .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.82rem;
+  }
+
+  .new-card-form .field > span {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+  }
+
+  .new-card-form .field > span small {
+    color: var(--text-soft);
+    font-size: 0.85em;
+    font-weight: normal;
+    margin-left: 0.4em;
+  }
+
+  .new-card-form input[type="text"],
+  .new-card-form select,
+  .new-card-form textarea {
+    background: var(--bg-0);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.45rem 0.65rem;
+    font: inherit;
+    font-size: 0.85rem;
+    transition: border-color 150ms ease, box-shadow 150ms ease;
+  }
+
+  .new-card-form input:focus,
+  .new-card-form select:focus,
+  .new-card-form textarea:focus {
+    outline: none;
+    border-color: var(--flame-in_progress);
+    box-shadow: 0 0 0 2px var(--flame-in_progress-glow);
+  }
+
+  .new-card-form textarea {
+    resize: vertical;
+    min-height: 80px;
+    font-family: var(--font-sans);
+  }
+
+  .new-card-form .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.9rem;
+  }
+
+  .form-error {
+    background: rgba(232, 71, 90, 0.1);
+    border: 1px solid var(--flame-blocked);
+    color: var(--flame-blocked);
+    padding: 0.5rem 0.7rem;
+    border-radius: 5px;
+    font-size: 0.8rem;
+  }
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.7rem;
+    margin-top: 0.4rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .btn-cancel,
+  .btn-submit {
+    font: inherit;
+    font-size: 0.82rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, color 150ms ease;
+  }
+
+  .btn-cancel {
+    background: transparent;
+    color: var(--text-dim);
+    border-color: var(--border);
+  }
+
+  .btn-cancel:hover {
+    color: var(--text);
+    border-color: var(--flame-backlog);
+  }
+
+  .btn-submit {
+    background: var(--flame-in_progress);
+    color: var(--bg-0);
+    border-color: var(--flame-in_progress);
+    font-weight: 600;
+  }
+
+  .btn-submit:hover {
+    background: #ffa05c;
+    border-color: #ffa05c;
+  }
+
+  .btn-submit:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 </style>
