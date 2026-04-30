@@ -115,17 +115,20 @@ jobs:
 
       - name: Reload PM2
         run: |
-          # --update-env is critical: without it, PM2 keeps the env block
-          # captured at process start. ecosystem.config.cjs reads secrets
-          # from sibling files (~/.kitsunebi-agent-tokens, ~/.kitsunebi-
-          # github-oauth.env), so any change there ~ adding the OAuth
-          # secrets, rotating the session secret, expanding the allowlist
-          # ~ won't reach the running process unless we re-read the env.
+          # Reload from the config file path (not by process name), so PM2
+          # actually re-evaluates ecosystem.config.cjs ~ which reads the
+          # secrets from sibling files (~/.kitsunebi-agent-tokens and
+          # ~/.kitsunebi-github-oauth.env). With --update-env, the running
+          # processes pick up the freshly-evaluated env.
+          #
+          # `pm2 reload <name> --update-env` looked right but is a footgun:
+          # it only updates env from the CURRENT shell, never re-reads the
+          # config, so file-backed secrets sit ignored. (Spent an hour on
+          # this; the deploy looked successful, the site kept 500-ing.)
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes \
             "$DH_USER@$DH_HOST" \
             "cd $DH_PATH && \
-             ~/.nvm/versions/node/v20.19.6/bin/pm2 reload kitsunebi --update-env || \
-             ~/.nvm/versions/node/v20.19.6/bin/pm2 start ecosystem.config.cjs"
+             ~/.nvm/versions/node/v20.19.6/bin/pm2 startOrReload ecosystem.config.cjs --update-env"
 
       - name: Verify
         run: |
