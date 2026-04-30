@@ -50,7 +50,7 @@ try {
 // pattern as the tunnel token: a sibling file (mode 600), so this committed
 // ecosystem config stays safe to publish. Format: comma-separated
 // `name:secret` pairs, e.g. `koda:abc...,sage:def...,luna:ghi...`. Empty /
-// missing file is fine — the API just won't accept agent tokens, browser
+// missing file is fine ~ the API just won't accept agent tokens, browser
 // auth still works.
 const agentTokensPath = path.join(process.env.HOME, '.kitsunebi-agent-tokens');
 let agentTokens = '';
@@ -59,6 +59,42 @@ try {
 } catch {
   // No agents provisioned yet. Not an error.
 }
+
+// GitHub OAuth + session secrets (Phase 4: human sign-in).
+//
+// Same on-disk-secret pattern: a sibling KEY=VALUE file at mode 600 so this
+// committed ecosystem config stays safe to publish. Expected keys:
+//
+//   KITSUNEBI_GITHUB_CLIENT_ID=...
+//   KITSUNEBI_GITHUB_CLIENT_SECRET=...
+//   KITSUNEBI_SESSION_SECRET=...   # 32+ random chars
+//   KITSUNEBI_GITHUB_ALLOWLIST=AdaInTheLab,...
+//
+// Missing/empty file is fine ~ kitsunebi will still serve the marketing
+// page and the read-only board, and any sign-in attempt will surface a
+// clear "set these env vars" error in the server log.
+const githubOauthPath = path.join(process.env.HOME, '.kitsunebi-github-oauth.env');
+const githubOauthEnv = (() => {
+  try {
+    const raw = fs.readFileSync(githubOauthPath, 'utf8');
+    const out = {};
+    for (const line of raw.split('\n')) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#')) continue;
+      const idx = trimmed.indexOf('=');
+      if (idx <= 0) continue;
+      const key = trimmed.slice(0, idx).trim();
+      let val = trimmed.slice(idx + 1).trim();
+      if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+        val = val.slice(1, -1);
+      }
+      out[key] = val;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+})();
 
 module.exports = {
   apps: [
@@ -90,6 +126,14 @@ module.exports = {
         // Per-agent bearer tokens for the Phase 3 agent API. See sibling
         // file ~/.kitsunebi-agent-tokens (mode 600).
         KITSUNEBI_AGENT_TOKENS: agentTokens,
+
+        // GitHub OAuth + session secrets (Phase 4: human sign-in). Read
+        // from ~/.kitsunebi-github-oauth.env (mode 600). See the comment
+        // block at the top of this file.
+        KITSUNEBI_GITHUB_CLIENT_ID: githubOauthEnv.KITSUNEBI_GITHUB_CLIENT_ID || '',
+        KITSUNEBI_GITHUB_CLIENT_SECRET: githubOauthEnv.KITSUNEBI_GITHUB_CLIENT_SECRET || '',
+        KITSUNEBI_SESSION_SECRET: githubOauthEnv.KITSUNEBI_SESSION_SECRET || '',
+        KITSUNEBI_GITHUB_ALLOWLIST: githubOauthEnv.KITSUNEBI_GITHUB_ALLOWLIST || '',
 
         // Auto-archive sweep threshold (default 14). Cards in `done` for
         // ≥ this many days move to `archived` on the next page load.
