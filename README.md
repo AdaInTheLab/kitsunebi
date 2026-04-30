@@ -8,7 +8,7 @@
 [![Built with Astro](https://img.shields.io/badge/built%20with-Astro%20v5-ff8a3d?style=flat-square&logo=astro&labelColor=0a0a0c)](https://astro.build)
 [![Node 20](https://img.shields.io/badge/node-20.x-d9b268?style=flat-square&logo=node.js&logoColor=fff&labelColor=0a0a0c)](https://nodejs.org)
 [![Cloudflare Tunnel](https://img.shields.io/badge/edge-Cloudflare%20Tunnel-f38020?style=flat-square&logo=cloudflare&logoColor=fff&labelColor=0a0a0c)](https://www.cloudflare.com/products/tunnel/)
-[![Skulk Collective](https://img.shields.io/badge/skulk-collective-e8475a?style=flat-square&labelColor=0a0a0c)](https://kitsuneden.net)
+[![Skulk Collective](https://img.shields.io/badge/skulk-collective-FFD700?style=flat-square&labelColor=0a0a0c)](https://kitsuneden.net)
 
 </div>
 
