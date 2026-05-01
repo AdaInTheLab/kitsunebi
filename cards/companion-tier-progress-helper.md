@@ -1,7 +1,7 @@
 ---
 id: companion-tier-progress-helper
 title: BondRules TierProgress helper
-status: backlog
+status: done
 owner: ada
 collaborators: []
 due: null
@@ -16,7 +16,10 @@ Pure function, easy to test. Small refactor that unblocks all panels that show b
 
 Math: `(points - currentTierThreshold) / (nextTierThreshold - currentTierThreshold)`. Capped at 1.0 for max tier.
 
-- [ ] Add `TierProgress(float points)` to BondRules.cs
-- [ ] Handle max-tier edge case (return 1.0)
-- [ ] Add boundary tests: 0%, 50%, 100% within each tier
-- [ ] Test transition points (exactly at threshold)
+- [x] Add `TierProgress(float points)` to BondRules.cs
+- [x] Handle max-tier edge case (return 1.0)
+- [x] Add boundary tests: 0%, 50%, 100% within each tier
+- [x] Test transition points (exactly at threshold)
+- [x] Negative input clamped to 0 (bonus)
+
+**Shipped 2026-05-01** — commit `0d75a24` on Kitsune-Den/KitsuneCompanion. 39/39 tests passing (was 30).
