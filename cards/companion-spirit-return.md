@@ -37,13 +37,19 @@ To call them back, the player performs the same manifestation ritual at a Kitsun
 **Resolved design (2026-05-01):**
 
 - Bond preserved 100% across spirit returns. No loss.
-- Same ritual cost as initial manifestation. No scaling. No special "rite."
+- **Re-manifestation cost scales inversely with bond tier** — the bigger the bond, the less material needed to call them back. The bond IS the tether that pulls them; a deep Kindred bond barely needs ceremony, while a fresh Familiar bond requires the full ritual. Lore-coherent: at Kindred, "they're already half here in spirit." Suggested cost curve:
+  - Faint / first manifestation → full cost (4 ritual ingredients + base mats)
+  - Familiar → ~75% cost
+  - Trusted → ~50% cost
+  - Bound → ~25% cost
+  - Kindred → token cost (1 ritual ingredient, symbolic)
 - Permadeath remains a possible mod-config toggle for hardcore players.
 
 **Implementation slices:**
 
 - [ ] Harmony patch on kitsune entity HP-zero / OnEntityDeath — fires spirit-return toast, ensures graceful entity removal
 - [ ] Re-manifestation flow: existing shrine ritual checks player's spirit-anchored state and applies it to the freshly spawned entity
+- [ ] Tier-scaled re-manifestation cost — multiple recipe variants gated by current bond tier (cleanest path, since 7DTD recipes have static costs), OR Harmony-patch the ingredient consumption
 - [ ] Override `KitsuneNames` to use player-anchored stored name on re-manifestation (so the kitsune's identity persists)
 - [ ] Toast strings + localization
 - [ ] Edge case: player has never bonded a kitsune yet — first manifestation works normally (no carryover, deterministic name from new entityId)
