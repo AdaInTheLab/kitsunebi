@@ -50,11 +50,14 @@ Per-player cvar (probably) or a small custom save-data file in `<modroot>/Data/`
 - [ ] Edge case: player has no carryover (never bonded a kitsune yet) → recipe hidden / shows tooltip "no kitsune to call back"
 - [ ] Edge case: multiple players, one kitsune — whose carryover saves on death? (Probably the highest-bond player. Or the closest player at time of death.)
 
-**Open design questions:**
+**Resolved design (2026-05-01):**
 
-- Should the resurrected kitsune lose any bond on death, or carry over 100%? Tradeoff: 100% = no penalty for combat losses; some-loss = death matters but isn't punitive. Suggest: lose ~10% bond on death to make combat positioning meaningful without being cruel.
-- Should the resurrection cost scale with bond tier? Higher-tier bond = more spiritual "weight" to recall. Cost scaling adds dramatic stakes for endgame.
-- Should there be a "permanent death" option toggleable in mod config? Hardcore players would want it.
+- **Bond is preserved 100% on death.** No loss. The bond is a relationship, not a status that decays from setbacks. Death is an interruption, not a regression.
+- **Resurrection cost does not scale with bond tier.** Same ingredients regardless of whether the kitsune was Familiar or Kindred. The ritual is a ritual — same shape every time. The ingredients represent *the rite*, not the magnitude of what's being restored.
+
+**Still open:**
+
+- Optional "permanent death" mod-config toggle for hardcore players? Could be a server.config flag — defaults to off.
 
 **Cross-references:**
 
