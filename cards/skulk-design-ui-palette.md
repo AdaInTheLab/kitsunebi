@@ -28,8 +28,12 @@ Full spec lives in:
 | Stamina | `#C8C850` | Stamina |
 | Frame gold | `#C8A050` | UI structure (no glow) |
 
-**Open items:**
+**Resolved 2026-04-30:**
 
-- [ ] Resolve temperament tint naming: spec says Playful/Curious/Guarded/Aggressive; KitsuneCompanion code says Curious/Protective/Playful/Serene. Pick one set.
-- [ ] Add Serene state tint (missing from current spec).
-- [ ] (Optional) Drop spec into obsidian vault for cross-project access.
+- [x] Temperament tint naming → keep code names. Curious / Protective / Playful / Serene. Aggressive dropped (not a code state).
+- [x] Serene tint → `rgba(140,220,180,40)` pale green-teal, evoking the healing/regen mechanic.
+- [x] MANIFESTED form label → UI-only fallback for "summoned, no specialization active." Not a code-side buff.
+
+**Still open:**
+
+- [ ] (Optional) Drop spec into obsidian vault `skulk-design/ui-palette.md` for cross-project access.
