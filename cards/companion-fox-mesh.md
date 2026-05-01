@@ -21,12 +21,15 @@ Replace the coyote-derived kitsune mesh with a real fox mesh. Currently the kits
 
 Pipeline (per `bundle-building.md`): Unity Editor + OCB UnityAssetExporter. UnityPy clone-and-modify is a confirmed dead end for new prefab geometry.
 
-Pre-purchase due diligence: rig type (Generic vs Humanoid), Mecanim-compatible animations included, "rigged" wording in listing, animation list covers idle/walk/run/attack at minimum.
+**Assets acquired 2026-05-01:**
+- ✅ **Red Fox Animated** ($24.99) — base mesh + rigged + animations included. No Mixamo retarget needed.
+- ✅ **Arctic Fox** ($24.99) — second variant for Mist form. One-mesh-multiple-textures architecture validated.
+- ✅ **Japanese Ancient Stone Fox** ($12) — shrine statue prefabs for the kitsuneShrine block visual upgrade (replaces woodWorkBenchPrefab placeholder).
 
-While we're already in Unity Editor for this, also do the shrine statue prefab — amortize the setup.
+While we're already in Unity Editor for the foxes, also bundle the shrine statue from Japanese Ancient Stone Fox — amortize the setup.
 
-- [ ] Verify asset rig compatibility (listing review)
-- [ ] Acquire asset
+- [x] Verify asset rig compatibility (listing review)
+- [x] Acquire asset
 - [ ] Install Unity Editor + OCB UnityAssetExporter
 - [ ] Import FBX → build new Animator Controller using 7DTD wolf parameter conventions
 - [ ] Build prefab + LODs
