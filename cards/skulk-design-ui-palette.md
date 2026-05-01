@@ -1,6 +1,6 @@
 ---
 id: skulk-design-ui-palette
-title: Skulk: unified KitsuneDen UI palette canon
+title: Unified KitsuneDen UI palette canon
 status: done
 owner: ada
 collaborators: []

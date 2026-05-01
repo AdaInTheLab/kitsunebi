@@ -1,6 +1,6 @@
 ---
 id: companion-perks-system
-title: KitsuneCompanion: Companion Perks system
+title: Companion Perks system
 status: backlog
 owner: ada
 collaborators: []

@@ -1,6 +1,6 @@
 ---
 id: companion-crafting-influence
-title: KitsuneCompanion: Crafting Influence buff system
+title: Crafting Influence buff system
 status: backlog
 owner: ada
 collaborators: []

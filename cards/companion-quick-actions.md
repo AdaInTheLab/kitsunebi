@@ -1,6 +1,6 @@
 ---
 id: companion-quick-actions
-title: KitsuneCompanion: Feed / Pet / Recall actions
+title: Feed, Pet, and Recall actions
 status: backlog
 owner: ada
 collaborators: []

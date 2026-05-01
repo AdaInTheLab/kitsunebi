@@ -1,6 +1,6 @@
 ---
 id: companion-notification-toasts
-title: KitsuneCompanion: notification toasts
+title: Kitsune notification toasts
 status: backlog
 owner: ada
 collaborators: []

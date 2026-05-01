@@ -1,6 +1,6 @@
 ---
 id: companion-tier-progress-helper
-title: KitsuneCompanion: BondRules.TierProgress helper
+title: BondRules TierProgress helper
 status: backlog
 owner: ada
 collaborators: []

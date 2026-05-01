@@ -1,6 +1,6 @@
 ---
 id: companion-fox-mesh
-title: KitsuneCompanion: custom fox mesh via Unity Editor
+title: Custom fox mesh via Unity Editor
 status: backlog
 owner: ada
 collaborators: []

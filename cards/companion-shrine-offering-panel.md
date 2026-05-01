@@ -1,6 +1,6 @@
 ---
 id: companion-shrine-offering-panel
-title: KitsuneCompanion: shrine offering panel (custom XUi window)
+title: Shrine offering panel (custom XUi window)
 status: backlog
 owner: ada
 collaborators: []

@@ -1,6 +1,6 @@
 ---
 id: companion-status-panel
-title: KitsuneCompanion: companion status panel (custom XUi window)
+title: Companion status panel (custom XUi window)
 status: backlog
 owner: ada
 collaborators: []

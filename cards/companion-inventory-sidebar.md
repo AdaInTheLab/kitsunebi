@@ -1,6 +1,6 @@
 ---
 id: companion-inventory-sidebar
-title: KitsuneCompanion: inventory screen sidebar
+title: Kitsune inventory screen sidebar
 status: backlog
 owner: ada
 collaborators: []

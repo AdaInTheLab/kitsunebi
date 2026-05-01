@@ -1,6 +1,6 @@
 ---
 id: companion-bond-ladder-rename
-title: KitsuneCompanion: rename bond ladder 4 → 5 tiers
+title: Rename bond ladder 4 to 5 tiers
 status: backlog
 owner: ada
 collaborators: []

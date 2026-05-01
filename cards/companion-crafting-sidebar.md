@@ -1,6 +1,6 @@
 ---
 id: companion-crafting-sidebar
-title: KitsuneCompanion: crafting screen Kitsune Assist sidebar
+title: Kitsune Assist crafting sidebar
 status: backlog
 owner: ada
 collaborators: []

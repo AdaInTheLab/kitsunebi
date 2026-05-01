@@ -1,6 +1,6 @@
 ---
 id: companion-hud-status-strip
-title: KitsuneCompanion: in-game HUD status strip
+title: In-game HUD kitsune status strip
 status: backlog
 owner: ada
 collaborators: []
