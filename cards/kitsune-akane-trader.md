@@ -26,13 +26,12 @@ She's not just window dressing — she's the **lorekeeper and connective tissue*
 - [x] **Render pipeline:** Built-in compatible. ✅ URP/HDRP not compatible — fine, 7DTD is Built-in.
 - [x] **Rig:** Epic Skeleton (UE5). ⚠ Not Mecanim Humanoid out of the box — needs one-time "Configure Avatar" pass in Unity Editor to map UE5 bones (`pelvis`, `spine_01`, `clavicle_l`, etc.) to Mecanim Humanoid slots. ~30 min, well-documented workflow.
 - [x] **Blendshapes:** included — facial morphs for expressions / talking animations.
-- [x] **Animations:** NOT included. Folder tree shows Mesh / Prefab / Materials / Shaders / Stand / Textures — no Anims folder. Mesh+rig only.
+- [x] **Animations:** NOT included with Akane asset. **Resolved 2026-05-01** by acquiring **KAWAII ANIMATIONS Cool Action** ($49.99) — Mecanim Humanoid animation pack covering idle/walk/talk/gesture/sword draw + swing. No Mixamo retarget needed.
 - [ ] **License:** confirm game distribution permitted (check Asset Quality / Publisher tabs).
 
-**Animation plan (asset has no anims):**
-1. **Mixamo (free, recommended).** Once she's configured as Humanoid in Unity, upload to Mixamo, retarget their idle/walk/talk/gesture/sword library. ~1 hour to grab a curated set.
-2. **Retarget 7DTD vanilla Humanoid clips** — Mecanim can play wolf/zombie Humanoid anims on her once Humanoid avatar is configured. Cheap fallback, limited variety.
-3. **Paid animation pack** — last resort.
+**Asset acquired 2026-05-01:** Kitsune Akane purchased. Animation source secured via KAWAII ANIMATIONS pack.
+
+**Animation plan:** Resolved — KAWAII ANIMATIONS Cool Action acquired. Apply animations to Akane's avatar in Unity Editor after Configure-Humanoid pass. Sword draw/swing covers the katana payoff for the combat-capable trader option.
 
 **Implementation slices:**
 
