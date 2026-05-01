@@ -1,7 +1,7 @@
 ---
 id: companion-bond-ladder-rename
 title: Rename bond ladder 4 to 5 tiers
-status: backlog
+status: done
 owner: ada
 collaborators: []
 due: null
@@ -18,10 +18,17 @@ Files: `Source/BondRules.cs`, `KitsuneCompanion/Config/buffs.xml`, `KitsuneCompa
 
 Mockup detail: see `project_shrine_ui_design.md` in KitsuneCompanion memory.
 
-- [ ] Rename constants in BondRules (BuffTrusted/Devoted/Awakened → Familiar/Trusted/Bound/Kindred)
-- [ ] Add new `Familiar` tier between Faint(0) and Trusted
-- [ ] Redistribute thresholds across 5 levels (current 10/50/200 → new 5/15/50/200 or similar)
-- [ ] Rename `buffKitsuneBondTrusted` etc. in buffs.xml; add Familiar buff
-- [ ] Update Localization.txt strings
-- [ ] Update boundary tests in BondRulesTests
-- [ ] Verify all 30 existing tests still pass after rename
+- [x] Rename constants in BondRules (BuffTrusted/Devoted/Awakened → Familiar/Trusted/Bound/Kindred)
+- [x] Add new `Familiar` tier between Faint(0) and Trusted
+- [x] Redistribute thresholds: 5 / 25 / 100 / 300 (Familiar→Kindred)
+- [x] Rename `buffKitsuneBondTrusted` etc. in buffs.xml; add Familiar buff
+- [x] Update Localization.txt strings
+- [x] Update boundary tests in BondRulesTests
+- [x] Update TemperamentRulesTests to use new tier names
+
+**Shipped 2026-05-01** — commit `1112983` on Kitsune-Den/KitsuneCompanion. 43/43 tests passing (unchanged count; old tests adapted in place + Familiar tier added to the boundary theory).
+
+Notes:
+- "Trusted" name persists but moves from tier 1 → tier 2 in the new ladder.
+- TemperamentRules `bondTier >= 2` comparison unchanged — old Devoted (50 pts) and new Trusted (25 pts) land in similar numeric range, so the Playful-flip-at-mid-health timing carries forward.
+- Buff bonuses preserved across rename: tiers 2/3/4 keep the old Trusted/Devoted/Awakened effects exactly. Familiar (tier 1) is a new small +5% HealthMax entry-level bonus.
