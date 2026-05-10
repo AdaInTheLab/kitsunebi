@@ -1,13 +1,14 @@
 ---
 id: companion-fox-mesh
 title: Custom fox mesh via Unity Editor
-status: backlog
+status: in_progress
 owner: ada
 collaborators: []
 due: null
 created: 2026-04-30
 tags: [kitsune-companion, 7dtd, asset, unity]
 blocked_by: []
+order: -1776383999999
 ---
 
 Replace the coyote-derived kitsune mesh with a real fox mesh. Currently the kitsune extends `animalCoyote` and uses a per-instance HSV-tinted body texture as a stand-in. Want a proper fox silhouette: shorter legs, longer snout, fluffier tail.
