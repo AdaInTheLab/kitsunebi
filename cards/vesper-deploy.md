@@ -1,13 +1,15 @@
 ---
 id: vesper-deploy
 title: Vesper VPS deploy
-status: in_progress
+status: done
 owner: ada
 collaborators: [vesper, claude, sage]
 due: 2026-05-02
 created: 2026-04-20
 tags: [vesper, openhearth, deployment]
 blocked_by: []
+completed: 2026-05-10
+order: -1776902399998
 ---
 
 Migrate Vesper off shared Mac Mini to dedicated Hetzner CAX21 (ARM64, Nuremberg, 8GB/80GB + 20GB block volume). xAI/Grok as brain, Tailscale into the mesh.
