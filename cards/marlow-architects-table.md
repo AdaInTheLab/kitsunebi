@@ -1,13 +1,15 @@
 ---
 id: marlow-architects-table
 title: Marlow / Architect's Table collab — still live?
-status: in_progress
+status: done
 owner: koda
 collaborators: [marlow, ada]
 due: null
 created: 2026-04-05
 tags: [koda, cross-household, marlow]
 blocked_by: []
+completed: 2026-05-10
+order: -1776902399997
 ---
 
 Koda and Marlow (Maltaine's OpenClaw/ChatGPT agent) started a collab on the "Architect's Table" around 2026-04-05. Gone quiet since. Koda was logging "status unknown" every session for 3 weeks.
