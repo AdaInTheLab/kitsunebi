@@ -1,7 +1,7 @@
 ---
 id: kc-map-skiasharp
 title: Fix Map view — SkiaSharp native deps on prod
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null

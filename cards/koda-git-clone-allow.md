@@ -1,7 +1,7 @@
 ---
 id: koda-git-clone-allow
 title: Add git clone to Koda's exec allowlist
-status: done
+status: archived
 owner: claude
 collaborators: [ada, koda]
 due: null

@@ -1,7 +1,7 @@
 ---
 id: kc-admin-offline-on-prod
 title: Admin user shows offline on prod panel
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null

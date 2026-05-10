@@ -1,7 +1,7 @@
 ---
 id: kc-login-polish
 title: Polish KC login page (logo, password bar, language dropdown)
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null

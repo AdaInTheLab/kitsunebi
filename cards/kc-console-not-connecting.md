@@ -1,7 +1,7 @@
 ---
 id: kc-console-not-connecting
 title: Console view doesn't connect on prod
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null

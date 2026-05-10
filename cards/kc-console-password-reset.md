@@ -1,7 +1,7 @@
 ---
 id: kc-console-password-reset
 title: Console command to reset a KC panel password (kcresetpw)
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null

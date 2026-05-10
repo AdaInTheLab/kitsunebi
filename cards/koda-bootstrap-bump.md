@@ -1,7 +1,7 @@
 ---
 id: koda-bootstrap-bump
 title: Bump Koda's maxBootstrapChars 20000 → 28000
-status: done
+status: archived
 owner: claude
 collaborators: [ada, koda]
 due: null

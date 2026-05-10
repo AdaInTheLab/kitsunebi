@@ -1,7 +1,7 @@
 ---
 id: luna-migration
 title: Luna migration — WSL + Codex CLI
-status: done
+status: archived
 owner: ada
 collaborators: [luna, claude]
 due: null

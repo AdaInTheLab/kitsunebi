@@ -1,7 +1,7 @@
 ---
 id: kc-favicon
 title: KitsuneCommand panel favicon
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null

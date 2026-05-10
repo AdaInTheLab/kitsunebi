@@ -1,7 +1,7 @@
 ---
 id: kc-troubleshooting-docs
 title: Add a "Troubleshooting" section to the KC docs
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 due: null
