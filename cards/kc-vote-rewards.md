@@ -1,7 +1,7 @@
 ---
 id: kc-vote-rewards
 title: Vote-for-rewards integration (server listing sites)
-status: done
+status: archived
 owner: ada
 collaborators: [claude]
 created: 2026-04-26

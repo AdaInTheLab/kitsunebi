@@ -1,7 +1,7 @@
 ---
 id: kitsunebi-mvp
 title: kitsunebi MVP — this board, rendered
-status: done
+status: archived
 owner: claude
 collaborators: [ada]
 due: null
