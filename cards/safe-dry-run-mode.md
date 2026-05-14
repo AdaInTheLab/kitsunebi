@@ -30,3 +30,5 @@ mesh_send({to: "koda", text: "...", dry_run: true})
 **Folded into Luna's migration** — pairs directly with her external-send gate. Every gated action renders its dry-run before asking for approval.
 
 From Luna's wishlist (#3), 2026-04-24. Openhearth-wide safety improvement.
+
+![dark-logo.png](/attachments/safe-dry-run-mode/dark-logo.png)
